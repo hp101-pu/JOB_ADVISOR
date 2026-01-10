@@ -1,0 +1,803 @@
+/* ================================================= */
+/* 💎 SEEKR PREMIUM THEME (Final Formatted Grid)     */
+/* ================================================= */
+
+:root {
+  /* LIGHT MODE VARIABLES */
+  --email-bg: var(--bg-primary, #f0f4f9);
+  --panel-bg: var(--bg-card, #ffffff);
+  --border-subtle: var(--border-color, #e2e8f0);
+  
+  --primary: var(--accent-primary, #2563eb);
+  --primary-soft: var(--accent-soft, #eff6ff);
+  
+  --text-main: var(--text-primary, #0f172a);
+  --text-secondary: var(--text-secondary, #475569);
+  --text-muted: var(--text-muted, #94a3b8);
+  
+  --read-bg: var(--panel-bg);
+  --unread-bg: #f8fafc;
+
+  /* SIZING */
+  --sidebar-width: 240px;
+  --sidebar-collapsed: 80px;
+  --list-width: 440px;
+  /* ⚡️ CHANGED: Much tighter list to save space for Detail View */
+  --list-width-compact: 260px; 
+}
+
+/* DARK MODE OVERRIDES */
+[data-theme="dark"] {
+  --email-bg: #0b0f15;
+  --panel-bg: #11161f;
+  --border-subtle: #2d3646;
+  --read-bg: #11161f;
+  --unread-bg: #1a2230;
+  --primary: #3b82f6;
+  --primary-soft: #1e293b;
+  --text-main: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+}
+
+/* ================================================= */
+/* 🏗️ MAIN LAYOUT                                    */
+/* ================================================= */
+
+.email-container {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) 1fr;
+  gap: 12px; 
+  padding: 12px; 
+  height: calc(100vh - 80px); 
+  position: relative;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+  color: var(--text-main);
+  background: var(--email-bg);
+}
+
+/* 🟢 PHASE 1: FULL DESKTOP (> 1350px) */
+@media (min-width: 1351px) {
+  .email-container.split-view {
+    grid-template-columns: var(--sidebar-width) var(--list-width) 1fr;
+  }
+}
+
+/* PANELS */
+.email-sidebar,
+.email-list-col,
+.email-content-col {
+  background: var(--panel-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+/* ================================================= */
+/* 1. SIDEBAR                                        */
+/* ================================================= */
+
+.email-sidebar {
+  padding: 16px 10px;
+  z-index: 10;
+}
+
+.compose-btn-wrapper {
+  margin-bottom: 20px;
+  padding: 0 4px;
+}
+
+.btn-compose {
+  width: 100%;
+  height: 42px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 15px;
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-compose:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.folder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.folder-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  width: 100%;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 15px;
+  height: 38px;
+  transition: all 0.1s;
+}
+
+.folder-item:hover {
+  background: var(--email-bg);
+  color: var(--text-main);
+}
+
+.folder-item.active {
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.folder-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.folder-icon {
+  font-size: 19px;
+  opacity: 0.9;
+  min-width: 24px;
+  text-align: center;
+}
+
+.folder-count {
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--email-bg);
+  padding: 2px 8px;
+  border-radius: 12px;
+  color: var(--text-secondary);
+}
+
+.folder-item.active .folder-count {
+  background: white;
+  color: var(--primary);
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.sync-card {
+  background: var(--unread-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sync-header-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.btn-sidebar-sync {
+  width: 100%;
+  padding: 8px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-weight: 600;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* ================================================= */
+/* 2. EMAIL LIST                                     */
+/* ================================================= */
+
+.email-list-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.search-input-simple {
+  width: 100%;
+  height: 50px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--email-bg);
+  outline: none;
+  font-size: 14px;
+  color: var(--text-main);
+}
+
+.email-list-scroll {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.email-item {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--read-bg);
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.email-item:hover {
+  background: var(--email-bg);
+}
+
+.email-item.active {
+  background: var(--primary-soft);
+  border-left-color: var(--primary);
+}
+
+.email-item.unread {
+  background: var(--unread-bg);
+}
+
+.email-item.unread .email-sender {
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.email-item-header-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.org-logo-small {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.header-text-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.sender-row-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 2px;
+}
+
+.email-sender {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.email-time {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+.email-item-sub {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.email-item-preview {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-left: 50px;
+}
+
+.email-tag {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-top: 4px;
+  margin-left: 50px;
+}
+
+.tag-success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.tag-warning {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+.tag-error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+[data-theme="dark"] .tag-success {
+  background: #064e3b;
+  color: #4ade80;
+  border: 1px solid #059669;
+}
+
+[data-theme="dark"] .tag-warning {
+  background: #451a03;
+  color: #fcd34d;
+  border: 1px solid #d97706;
+}
+
+[data-theme="dark"] .tag-error {
+  background: #450a0a;
+  color: #f87171;
+  border: 1px solid #dc2626;
+}
+
+/* ================================================= */
+/* 3. DETAIL VIEW                                    */
+/* ================================================= */
+
+.email-content-col {
+  background: var(--panel-bg);
+  position: relative;
+  z-index: 20;
+  height: 100%;
+  animation: slideInContent 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideInContent {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.email-detail-header {
+  padding: 20px 28px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.detail-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.back-btn-mobile {
+  display: none;
+  background: transparent;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text-secondary);
+  margin-right: auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.back-btn-mobile:hover {
+  color: var(--text-main);
+}
+
+.action-icon-btn {
+  background: var(--email-bg);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-main);
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.action-icon-btn:hover {
+  background: var(--border-subtle);
+}
+
+.detail-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.ai-status-pill {
+  background: #f5f3ff;
+  color: #7c3aed;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid #ddd6fe;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.detail-subject {
+  font-size: 24px;
+  font-weight: 800;
+  margin: 16px 0;
+  color: var(--text-main);
+}
+
+.sender-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
+.sender-avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.sender-name {
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--text-main);
+}
+
+.sender-email {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.email-body-content {
+  flex: 1;
+  padding: 28px;
+  overflow-y: auto;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.email-detail-footer {
+  padding: 16px 28px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  background: var(--panel-bg);
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
+.btn-primary {
+  padding: 10px 20px;
+  background: var(--primary);
+  color: white;
+  border-radius: 8px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-secondary {
+  padding: 10px 16px;
+  background: var(--panel-bg);
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ================================================= */
+/* 📝 COMPOSE MODAL                                  */
+/* ================================================= */
+
+.compose-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.compose-window {
+  width: 680px;
+  min-height: 550px;
+  background: var(--panel-bg);
+  border-radius: 16px;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+.compose-header {
+  padding: 16px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.compose-title {
+  font-weight: 700;
+  color: var(--text-main);
+  font-size: 16px;
+}
+
+.icon-btn-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.compose-inputs {
+  padding: 12px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.input-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: transparent;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.input-label {
+  width: 60px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.clean-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  background: transparent;
+  color: var(--text-main);
+  font-weight: 500;
+}
+
+.compose-body {
+  flex: 1;
+  padding: 24px 32px;
+  border: none;
+  resize: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-main);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.compose-footer {
+  padding: 20px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--email-bg);
+}
+
+.btn-ai-magic {
+  background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 2px 5px rgba(124, 58, 237, 0.3);
+}
+
+.btn-send-primary {
+  background: var(--primary);
+  color: white;
+  padding: 10px 24px;
+  border-radius: 8px;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ================================================= */
+/* ⚡️ SMART RESPONSIVENESS (FINAL LOGIC)             */
+/* ================================================= */
+
+/* 🟡 PHASE 2: COMPACT VIEW (1000px - 1350px) */
+/* Collapse Sidebar to Icons, Shrink List to 260px */
+@media (max-width: 1350px) {
+  .email-container {
+    grid-template-columns: 80px 1fr;
+  }
+
+  /* ⚡️ THIS SHRINK PREVENTS THE "MESSY PIXELS" */
+  .email-container.split-view {
+    grid-template-columns: 80px 260px 1fr;
+  }
+
+  .email-sidebar {
+    padding: 20px 4px;
+    align-items: center;
+  }
+
+  .btn-compose span,
+  .folder-label,
+  .folder-count,
+  .email-section-title,
+  .sync-card {
+    display: none;
+  }
+
+  .btn-compose {
+    width: 44px;
+    padding: 0;
+    justify-content: center;
+    font-size: 0;
+  }
+
+  .btn-compose::before {
+    content: "✏️";
+    font-size: 18px;
+  }
+
+  .folder-left {
+    justify-content: center;
+    gap: 0;
+  }
+
+  .folder-item {
+    justify-content: center;
+  }
+}
+
+/* 🔴 PHASE 3: COLLAPSED VIEW (< 1000px) */
+/* Sidebar Icons + Detail ONLY (List Hides) */
+@media (max-width: 999px) {
+  /* Inherit Sidebar Collapse from above */
+  .email-container.split-view {
+    grid-template-columns: 80px 1fr;
+  }
+
+  /* HIDE List Column when email is open */
+  .split-view .email-list-col {
+    display: none;
+  }
+
+  /* Make Content Full Width */
+  .split-view .email-content-col {
+    display: flex;
+    width: 100%;
+  }
+
+  /* Show Back Button to return to list */
+  .back-btn-mobile {
+    display: flex;
+  }
+}
+
+/* 📱 MOBILE (< 768px) */
+@media (max-width: 768px) {
+  .email-container,
+  .email-container.split-view {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    height: calc(100vh - 60px);
+  }
+
+  .email-sidebar {
+    display: none;
+  }
+
+  .email-list-col {
+    width: 100%;
+    height: 100%;
+    display: flex;
+  }
+
+  .email-content-col {
+    display: none;
+  }
+
+  .split-view .email-list-col {
+    display: none;
+  }
+
+  .split-view .email-content-col {
+    display: flex;
+    width: 100%;
+    height: 100%;
+  }
+
+  .compose-window {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+  }
+}
