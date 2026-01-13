@@ -1,0 +1,126 @@
+/* ========================================= */
+/* SEEKR — DESIGN SYSTEM TOKENS              */
+/* ========================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
+
+:root {
+  /* ── Backgrounds ── */
+  --bg-primary:        #f1f5fb;
+  --bg-secondary:      #ffffff;
+  --bg-sidebar:        #ffffff;
+  --bg-card:           #ffffff;
+  --bg-card-gradient:  #ffffff;
+  --bg-calendar:       #ffffff;
+  --bg-hover:          #f5f8ff;
+
+  /* ── Text ── */
+  --text-primary:   #0c1a3a;
+  --text-secondary: #4a5775;
+  --text-muted:     #8c96b0;
+
+  /* ── Borders ── */
+  --border-color:  #dde4f0;
+  --border-strong: #b8c5dc;
+
+  /* ── Brand ── */
+  --accent-primary:  #1d4ed8;
+  --accent-mid:      #2563eb;
+  --accent-light:    #3b82f6;
+  --accent-soft:     #eff6ff;
+  --accent-glow:     rgba(37, 99, 235, 0.13);
+  --accent-gradient: linear-gradient(135deg, #1d4ed8 0%, #2563eb 60%, #3b82f6 100%);
+
+  /* ── Semantic ── */
+  --success-bg:     #ecfdf5;
+  --info-bg:        #eff6ff;
+  --warning-bg:     #fffbeb;
+  --danger-bg:      #fef2f2;
+
+  --success-solid:  #16a34a;
+  --info-solid:     #1d4ed8;
+  --warning-solid:  #d97706;
+  --danger-solid:   #dc2626;
+
+  --success-border: #a7f3d0;
+  --info-border:    #bfdbfe;
+  --warning-border: #fde68a;
+  --danger-border:  #fecaca;
+
+  /* ── Elevation ── */
+  --shadow-xs:    0 1px 2px 0 rgba(12, 26, 58, 0.05);
+  --shadow-sm:    0 1px 4px 0 rgba(12, 26, 58, 0.07), 0 1px 2px -1px rgba(12, 26, 58, 0.05);
+  --shadow-md:    0 4px 12px -2px rgba(12, 26, 58, 0.09), 0 2px 4px -2px rgba(12, 26, 58, 0.06);
+  --shadow-lg:    0 12px 28px -6px rgba(12, 26, 58, 0.12), 0 4px 8px -4px rgba(12, 26, 58, 0.08);
+  --shadow-hover: 0 16px 36px -8px rgba(29, 78, 216, 0.18), 0 6px 14px -4px rgba(12, 26, 58, 0.08), 0 0 0 1px rgba(29, 78, 216, 0.1);
+  --shadow-blue:  0 8px 24px -4px rgba(29, 78, 216, 0.28);
+
+  /* ── Buttons ── */
+  --btn-primary-bg:    #1d4ed8;
+  --btn-primary-hover: #1e40af;
+  --btn-text:          #ffffff;
+
+  /* ── Radius ── */
+  --radius-sm:  6px;
+  --radius-md:  10px;
+  --radius-lg:  14px;
+  --radius-xl:  18px;
+
+  /* ── Typography ── */
+  --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'DM Mono', 'Fira Code', monospace;
+}
+
+/* ========================================= */
+/* 🌙 DARK MODE                              */
+/* ========================================= */
+
+html[data-theme="dark"] {
+  --bg-primary:        #070c14;
+  --bg-secondary:      #0c1421;
+  --bg-sidebar:        #090f1a;
+  --bg-card:           #0e1724;
+  --bg-card-gradient:  #0e1724;
+  --bg-calendar:       #0e1724;
+  --bg-hover:          #131e2e;
+
+  --text-primary:   #edf1ff;
+  --text-secondary: #8a9cbf;
+  --text-muted:     #4e5f7a;
+
+  --border-color:  #1a2840;
+  --border-strong: #2b3f5c;
+
+  --accent-primary:  #3b82f6;
+  --accent-mid:      #60a5fa;
+  --accent-light:    #93c5fd;
+  --accent-soft:     #0c1d3e;
+  --accent-glow:     rgba(59, 130, 246, 0.18);
+  --accent-gradient: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 60%, #60a5fa 100%);
+
+  --success-bg:     rgba(16, 185, 129, 0.1);
+  --info-bg:        rgba(59, 130, 246, 0.1);
+  --warning-bg:     rgba(245, 158, 11, 0.1);
+  --danger-bg:      rgba(239, 68, 68, 0.1);
+
+  --success-solid:  #34d399;
+  --info-solid:     #60a5fa;
+  --warning-solid:  #fbbf24;
+  --danger-solid:   #f87171;
+
+  --success-border: rgba(52, 211, 153, 0.22);
+  --info-border:    rgba(96, 165, 250, 0.22);
+  --warning-border: rgba(251, 191, 36, 0.22);
+  --danger-border:  rgba(248, 113, 113, 0.22);
+
+  --shadow-xs:    0 1px 3px 0 rgba(0, 0, 0, 0.3);
+  --shadow-sm:    0 2px 8px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md:    0 4px 18px -2px rgba(0, 0, 0, 0.5);
+  --shadow-lg:    0 12px 36px -6px rgba(0, 0, 0, 0.6);
+  --shadow-hover: 0 20px 48px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(59, 130, 246, 0.18);
+  --shadow-blue:  0 8px 28px -4px rgba(59, 130, 246, 0.4);
+
+  --btn-primary-bg:    #2563eb;
+  --btn-primary-hover: #1d4ed8;
+  --btn-text:          #ffffff;
+}

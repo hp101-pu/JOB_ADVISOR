@@ -1,0 +1,7 @@
+/* App-level resets — Vite boilerplate removed */
+#root {
+  max-width: unset;
+  margin: unset;
+  padding: unset;
+  text-align: unset;
+}
