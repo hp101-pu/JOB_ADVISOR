@@ -13,7 +13,7 @@ const storeEmail = asyncHandler(async (req, res) => {
     return res.status(401).json({ success: false, message: "Unauthorized: no userId" });
   }
 
-  const { emailId,threadId, type, from, subject, text, date,folder  } = req.body;
+  const { emailId,threadId, type, from, subject, text, date,folder, isRelevant  } = req.body;
 
   if (!emailId || !type || !from || !date || !threadId || !folder) {
     throw new Error("Missing required email fields");
@@ -33,6 +33,7 @@ const storeEmail = asyncHandler(async (req, res) => {
         date: new Date(date),
         folder,
         isEmbedded: false,
+        isRelevant: isRelevant !== undefined ? isRelevant : true,
       },
     },
     { upsert: true, new: true }

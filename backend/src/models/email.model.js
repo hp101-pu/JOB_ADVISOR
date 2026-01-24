@@ -38,6 +38,11 @@ const emailSchema = new mongoose.Schema(
       required: true,
     },
 
+    isRelevant: {
+      type: Boolean,
+      default: true,
+    },
+
     from: {
       type: String,
       required: true,

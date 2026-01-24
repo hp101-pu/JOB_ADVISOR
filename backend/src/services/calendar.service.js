@@ -30,6 +30,18 @@ function getGroq() {
   return _groq;
 }
 
+/**
+ * Extract the first JSON object from a string, stripping markdown fences.
+ */
+function extractJsonObject(text) {
+  let cleaned = text.trim();
+  if (cleaned.startsWith("```")) {
+    cleaned = cleaned.replace(/```json|```/g, "").trim();
+  }
+  const match = cleaned.match(/\{[\s\S]*\}/);
+  return match ? match[0] : cleaned;
+}
+
 class CalendarService {
 
   /**
@@ -92,11 +104,15 @@ Email Body: ${text}
           return null;
         }
 
-        const cleaned = raw.startsWith("```")
-          ? raw.replace(/```json|```/g, "").trim()
-          : raw;
+        const cleaned = extractJsonObject(raw);
 
-        const result = JSON.parse(cleaned);
+        let result;
+        try {
+          result = JSON.parse(cleaned);
+        } catch (parseErr) {
+          console.error(`❌ [CalendarService] JSON parse failed: ${parseErr.message}; raw='${raw}'; cleaned='${cleaned}'`);
+          return null;
+        }
 
         if (!result.date || !result.startTime || !result.endTime || !result.company) {
           console.log("⚠️ [CalendarService] Missing required fields — skipping");

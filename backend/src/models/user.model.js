@@ -144,6 +144,16 @@ const userSchema = new mongoose.Schema(
       default: false
     },
 
+    isCalendarConnected: {
+      type: Boolean,
+      default: false
+    },
+
+    googleCalendarTokens: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+
     initialSyncDone: {
       type: Boolean,
       default: false

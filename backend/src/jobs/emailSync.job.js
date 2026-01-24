@@ -76,6 +76,7 @@ async function autoScheduleInterviews(user) {
   const interviewEmails = await Email.find({
     userId: user._id,
     type: "INTERVIEW",
+    isRelevant: true,
     calendarEventCreated: { $ne: true },
     calendarEventDeleted: { $ne: true },
   });
