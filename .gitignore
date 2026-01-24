@@ -1,6 +1,6 @@
 # env files
-# .env
-# **/.env
+.env
+**/.env
 
 # OAuth secrets
 client_secret_*.json
