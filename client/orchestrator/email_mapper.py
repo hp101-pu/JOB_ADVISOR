@@ -28,29 +28,26 @@ def map_to_backend(email):
     # -----------------------------
     # Classification (LLM)
     # -----------------------------
-    # result = classify_email_semantic(
-    #     email.get("subject", ""),
-    #     email.get("body", "")
-    # )
+    result = classify_email_semantic(
+        email.get("subject", ""),
+        email.get("body", "")
+    )
 
-    # if not result["is_relevant"]:
-    #     return None  # ❗ DROP email completely
+    is_relevant = bool(result.get("is_relevant", False))
+    email_type = result.get("type", "OTHER").upper()
+    if email_type not in ALLOWED_TYPES:
+        print(f"[email_mapper] Unknown type '{email_type}', defaulting to OTHER for email: {email.get('id')}")
+        email_type = "OTHER"
 
-    # email_type = result.get("type", "OTHER").upper()
-    # if email_type not in ALLOWED_TYPES:
-    #     email_type = "OTHER"
-
-    result = {"is_relevant": True, "type": "OTHER"}
-    email_type = "OTHER"
-
-
+    if not is_relevant:
+        print(f"[email_mapper] Marking email as non-relevant: {email.get('id')}")
+        email_type = "OTHER"
 
     # -----------------------------
     # Final payload
     # -----------------------------
     folder = "SENT" if email.get("isSent") else "INBOX"
 
-    # Final payload
     return {
         "emailId": email["id"],
         "type": email_type,
@@ -59,5 +56,6 @@ def map_to_backend(email):
         "subject": email.get("subject", ""),
         "text": email.get("body", ""),
         "date": date.isoformat(),
-        "folder": folder,       
+        "folder": folder,
+        "isRelevant": is_relevant,
     }

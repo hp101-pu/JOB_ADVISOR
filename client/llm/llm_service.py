@@ -1,4 +1,5 @@
 import json
+import re
 
 from client.llm.groq_client import get_groq_client, groq_chat_with_fallback
 
@@ -34,10 +35,29 @@ def generate_email_reply(prompt: str) -> str:
     return response.choices[0].message.content.strip()
 
 
+_ALLOWED_EMAIL_TYPES = {
+    "JOB", "INTERVIEW", "OFFER", "REJECTION", "OTHER"
+}
+
+
+def _extract_json_object(text: str) -> str:
+    """Find the first JSON object in a string, stripping markdown fences if any."""
+    # Strip markdown code fences first
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.strip("`").replace("json", "").strip()
+
+    # Find the first balanced JSON object via regex
+    match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+    if match:
+        return match.group(0)
+    return cleaned
+
+
 def classify_email_semantic(subject: str, body: str) -> dict:
     """
     Determines whether an email is job-related and classifies it.
-    Includes DEBUG logs.
+    Hardened against malformed LLM output.
     """
 
     prompt = f"""
@@ -70,27 +90,27 @@ Body:
 
     raw_text = response.choices[0].message.content.strip()
 
-    # 🔍 DEBUG LOG
-    print("\n[LLM RAW RESPONSE]")
+    print("\n[LLM CLASSIFY RAW RESPONSE]")
     print(raw_text)
 
-    # 🔧 Strip markdown if present
-    cleaned = raw_text
-    if raw_text.startswith("```"):
-        cleaned = raw_text.strip("`").replace("json", "").strip()
+    cleaned = _extract_json_object(raw_text)
 
     try:
         result = json.loads(cleaned)
     except Exception as e:
-        print("[LLM PARSE ERROR]", e)
+        print(f"[LLM CLASSIFY PARSE ERROR] {e}; cleaned='{cleaned}'")
         return {"is_relevant": False, "type": "OTHER"}
 
-    # 🔍 DEBUG LOG
-    print("[LLM PARSED RESULT]", result)
+    email_type = str(result.get("type", "OTHER")).upper().strip()
+    if email_type not in _ALLOWED_EMAIL_TYPES:
+        print(f"[LLM CLASSIFY TYPE NORMALIZED] '{email_type}' -> 'OTHER'")
+        email_type = "OTHER"
+
+    print("[LLM CLASSIFY PARSED RESULT]", result)
 
     return {
         "is_relevant": bool(result.get("is_relevant", False)),
-        "type": result.get("type", "OTHER").upper(),
+        "type": email_type,
     }
 
 
