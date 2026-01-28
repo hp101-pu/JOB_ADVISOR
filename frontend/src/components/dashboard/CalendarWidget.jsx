@@ -75,7 +75,9 @@ export default function CalendarWidget() {
       const monthEnd = endOfMonth(activeDate);
       const calendarStart = startOfWeek(monthStart);
       const calendarEnd = endOfWeek(monthEnd);
+      console.log(`[CalendarWidget] fetching events from ${calendarStart.toISOString()} to ${calendarEnd.toISOString()} for activeDate=${activeDate.toISOString()}`);
       const fetchedEvents = await calendarService.getEvents(calendarStart, calendarEnd);
+      console.log(`[CalendarWidget] fetched ${fetchedEvents.length} events`, fetchedEvents);
 
       // Backend now returns MongoDB CalendarEvent docs, not raw Google API objects.
       // Shape: { _id, googleEventId, summary, date, startTime, endTime, meetLink, eventLink, company, ... }

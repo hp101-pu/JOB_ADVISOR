@@ -104,21 +104,24 @@ export default function AskAI() {
   const [messages, setMessages] = useState([DEFAULT_MSG]);
   const [input, setInput]       = useState("");
   const [loading, setLoading]   = useState(false);
+  const [pendingConfirmation, setPendingConfirmation] = useState(null);
   const bottomRef  = useRef(null);
   const inputRef   = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages, loading, pendingConfirmation]);
 
-  const sendMessage = async (text) => {
+  const sendMessage = async (text, confirmed = false) => {
     const trimmed = (text || input).trim();
     if (!trimmed || loading) return;
 
     const conversationId = getOrCreateConvId();
 
-    setInput("");
-    setMessages((prev) => [...prev, { role: "user", content: trimmed }]);
+    if (!confirmed) {
+      setInput("");
+      setMessages((prev) => [...prev, { role: "user", content: trimmed }]);
+    }
     setLoading(true);
 
     try {
@@ -132,6 +135,7 @@ export default function AskAI() {
           text: trimmed,
           conversation_id: conversationId,
           metadata: {},
+          confirmed,
         }),
       });
 
@@ -151,7 +155,23 @@ export default function AskAI() {
           ? data.response
           : JSON.stringify(data.response, null, 2);
 
-      setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+      if (data.metadata?.status === "NEEDS_CONFIRMATION") {
+        setPendingConfirmation({ text: trimmed, reply });
+      } else {
+        setPendingConfirmation(null);
+
+        // Check if the response includes Google Calendar sync info
+        const meta = data.metadata || {};
+        let finalReply = reply;
+
+        if (meta.google_synced === false && meta.event_created) {
+          finalReply = reply + "\n\n*Saved to your app calendar. Not synced to Google Calendar — connect your Google Calendar in Settings to sync.*";
+        } else if (meta.google_synced === true && meta.event_created) {
+          finalReply = reply + "\n\n*Event saved and synced to Google Calendar.*";
+        }
+
+        setMessages((prev) => [...prev, { role: "assistant", content: finalReply }]);
+      }
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -161,6 +181,21 @@ export default function AskAI() {
       setLoading(false);
       inputRef.current?.focus();
     }
+  };
+
+  const handleConfirm = () => {
+    if (!pendingConfirmation) return;
+    const text = pendingConfirmation.text;
+    setPendingConfirmation(null);
+    sendMessage(text, true);
+  };
+
+  const handleCancel = () => {
+    setPendingConfirmation(null);
+    setMessages((prev) => [
+      ...prev,
+      { role: "assistant", content: "Action cancelled." },
+    ]);
   };
 
   const handleKeyDown = (e) => {
@@ -221,6 +256,21 @@ export default function AskAI() {
               </div>
             </div>
           )}
+          {pendingConfirmation && (
+            <div className="ai-confirmation-row">
+              <div className="ai-confirmation-bubble">
+                <p>{pendingConfirmation.reply}</p>
+                <div className="ai-confirmation-actions">
+                  <button className="ai-confirm-btn" onClick={handleConfirm}>
+                    Confirm
+                  </button>
+                  <button className="ai-cancel-btn" onClick={handleCancel}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           <div ref={bottomRef} />
         </div>
 
@@ -242,7 +292,7 @@ export default function AskAI() {
               ref={inputRef}
               className="ai-textarea"
               rows={1}
-              placeholder="Ask about your jobs, emails, interviews…"
+              placeholder={pendingConfirmation ? "Confirm or cancel the pending action…" : "Ask about your jobs, emails, interviews…"}
               value={input}
               onChange={(e) => {
                 setInput(e.target.value);
@@ -250,12 +300,12 @@ export default function AskAI() {
                 e.target.style.height = Math.min(e.target.scrollHeight, 140) + "px";
               }}
               onKeyDown={handleKeyDown}
-              disabled={loading}
+              disabled={loading || pendingConfirmation}
             />
             <button
-              className={`ai-send-btn ${loading || !input.trim() ? "disabled" : ""}`}
+              className={`ai-send-btn ${loading || !input.trim() || pendingConfirmation ? "disabled" : ""}`}
               onClick={() => sendMessage()}
-              disabled={loading || !input.trim()}
+              disabled={loading || !input.trim() || pendingConfirmation}
             >
               <SendHorizonal size={16} strokeWidth={2.5} />
             </button>

@@ -92,9 +92,13 @@ const calendarEventSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Prevent duplicate events per user + email
-// (one calendar event per source email)
-calendarEventSchema.index({ userId: 1, emailId: 1 }, { unique: true, sparse: true });
+// Prevent duplicate events per user + email — but only when emailId is set.
+// Direct-created events (emailId=null) are excluded from this index so
+// multiple manual events can coexist for the same user.
+calendarEventSchema.index(
+  { userId: 1, emailId: 1 },
+  { unique: true, partialFilterExpression: { emailId: { $type: "ObjectId" } } }
+);
 
 // Fast range queries for the calendar page
 calendarEventSchema.index({ userId: 1, date: 1 });

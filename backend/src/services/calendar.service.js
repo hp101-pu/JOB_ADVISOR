@@ -140,14 +140,94 @@ Email Body: ${text}
   }
 
   /**
+   * Shared method: save event to MongoDB first, then try Google Calendar (non-fatal).
+   *
+   * @param {String} userId
+   * @param {Object} eventData - { summary, description, company, role, date, startTime, endTime, timezone, meetLink, emailId?, source }
+   * @returns {Object} { eventDoc, googleSynced, googleEventLink }
+   */
+  async _saveEventToDBAndGoogle(userId, eventData) {
+    const {
+      summary,
+      description = '',
+      company = '',
+      role = '',
+      date,
+      startTime,
+      endTime,
+      timezone = 'Asia/Kolkata',
+      meetLink = '',
+      emailId = null,
+      source = 'email',
+    } = eventData;
+
+    // 1. Save to MongoDB CalendarEvent collection first
+    //    This always succeeds regardless of Google Calendar status
+    const filter = emailId
+      ? { userId, emailId }
+      : { userId, date: new Date(`${date}T${startTime}`), company };
+
+    const eventDoc = await CalendarEvent.findOneAndUpdate(
+      filter,
+      {
+        userId,
+        emailId:       emailId || null,
+        googleEventId: null,
+        summary,
+        description,
+        company,
+        role,
+        date:          new Date(`${date}T${startTime}`),
+        startTime,
+        endTime,
+        timezone,
+        meetLink,
+        eventLink:     '',
+        source,
+        deletedByUser: false,
+      },
+      { upsert: true, new: true }
+    );
+
+    console.log(`💾 [CalendarService] Saved to MongoDB: ${eventDoc._id}`);
+
+    // 2. Push to user's Google Calendar if connected (non-fatal)
+    let googleSynced = false;
+    let googleEventLink = '';
+
+    const user = await User.findById(userId).select('googleCalendarTokens');
+
+    if (user?.googleCalendarTokens?.access_token) {
+      try {
+        const googleEvent = await googleCalendarService.createEvent(userId, eventData);
+
+        await CalendarEvent.findByIdAndUpdate(eventDoc._id, {
+          googleEventId: googleEvent.id,
+          eventLink:     googleEvent.htmlLink || '',
+        });
+
+        googleSynced = true;
+        googleEventLink = googleEvent.htmlLink || '';
+        console.log(`📅 [CalendarService] Also pushed to Google Calendar: ${googleEventLink}`);
+      } catch (googleErr) {
+        console.warn(`⚠️ [CalendarService] Google Calendar push failed (non-fatal): ${googleErr.message}`);
+        console.warn(`   Event is saved in app DB and will still show in the app calendar.`);
+      }
+    } else {
+      console.log(`ℹ️ [CalendarService] Google Calendar not connected for user ${userId} — saved to app only`);
+    }
+
+    return { eventDoc, googleSynced, googleEventLink };
+  }
+
+  /**
    * Main method called by the cron job.
    *
    * Steps:
    *  1. Fetch INTERVIEW email from MongoDB
    *  2. Groq LLM extracts date/time/company
-   *  3. Save to MongoDB CalendarEvent
-   *  4. Push to user's Google Calendar (if connected) — non-fatal if fails
-   *  5. Mark email as calendarEventCreated: true
+   *  3. Save to MongoDB CalendarEvent + push to Google Calendar (via shared method)
+   *  4. Mark email as calendarEventCreated: true
    */
   async createCalendarEventFromEmail(userId, emailId) {
     console.log(`📅 [CalendarService] Processing email: ${emailId}`);
@@ -188,69 +268,52 @@ Email Body: ${text}
       timezone:    details.timezone || "Asia/Kolkata",
       meetLink:    details.meetLink || "",
       emailId:     email._id,
+      source:      "email",
     };
 
-    // 3. Save to MongoDB CalendarEvent collection first
-    //    This always succeeds regardless of Google Calendar status
-    const eventDoc = await CalendarEvent.findOneAndUpdate(
-      { userId, emailId: email._id },
-      {
-        userId,
-        emailId:       email._id,
-        googleEventId: null,      // will be updated if Google push succeeds
-        summary:       eventData.summary,
-        description:   eventData.description,
-        company:       eventData.company,
-        role:          eventData.role,
-        date:          new Date(`${details.date}T${details.startTime}`),
-        startTime:     details.startTime,
-        endTime:       details.endTime,
-        timezone:      details.timezone || "Asia/Kolkata",
-        meetLink:      details.meetLink || "",
-        eventLink:     "",        // will be updated if Google push succeeds
-        source:        "email",
-        deletedByUser: false,
-      },
-      { upsert: true, new: true }
-    );
+    // 3. Save to MongoDB + try Google Calendar (shared method)
+    const { eventDoc, googleSynced, googleEventLink } = await this._saveEventToDBAndGoogle(userId, eventData);
 
-    console.log(`💾 [CalendarService] Saved to MongoDB: ${eventDoc._id}`);
-
-    // 4. Push to user's actual Google Calendar (so their phone/Google gets notifications)
-    //    Non-fatal — if Google Calendar isn't connected or push fails,
-    //    the event still exists in our app's calendar
-    const user = await User.findById(userId).select("googleCalendarTokens");
-
-    if (user?.googleCalendarTokens?.access_token) {
-      try {
-        const googleEvent = await googleCalendarService.createEvent(userId, eventData);
-
-        // Update the CalendarEvent doc with Google's event ID and link
-        await CalendarEvent.findByIdAndUpdate(eventDoc._id, {
-          googleEventId: googleEvent.id,
-          eventLink:     googleEvent.htmlLink || "",
-        });
-
-        console.log(`📅 [CalendarService] Also pushed to Google Calendar: ${googleEvent.htmlLink}`);
-
-      } catch (googleErr) {
-        // Google Calendar push failed — not fatal, app calendar still works
-        console.warn(`⚠️ [CalendarService] Google Calendar push failed (non-fatal): ${googleErr.message}`);
-        console.warn(`   Event is saved in app DB and will still show in the app calendar.`);
-      }
-    } else {
-      console.log(`ℹ️ [CalendarService] Google Calendar not connected for user ${userId} — saved to app only`);
-    }
-
-    // 5. Mark email as processed so cron never touches it again
+    // 4. Mark email as processed so cron never touches it again
     await Email.findByIdAndUpdate(emailId, { calendarEventCreated: true });
 
     return {
-      success:  true,
-      eventId:  eventDoc._id,
-      company:  details.company,
-      date:     details.date,
-      time:     details.startTime,
+      success:       true,
+      eventId:       eventDoc._id,
+      company:       details.company,
+      date:          details.date,
+      time:          details.startTime,
+      googleSynced,
+      googleEventLink,
+    };
+  }
+
+  /**
+   * Create a calendar event directly from structured data (not from email).
+   * Used by the chatbot's calendar_create_event pipeline.
+   *
+   * Steps:
+   *  1. Save to MongoDB CalendarEvent + push to Google Calendar (via shared method)
+   *  2. Return result with googleSynced flag
+   */
+  async createCalendarEventDirect(userId, eventData) {
+    console.log(`📅 [CalendarService] Direct create for user ${userId}: ${eventData.company} on ${eventData.date}`);
+
+    const { eventDoc, googleSynced, googleEventLink } = await this._saveEventToDBAndGoogle(userId, {
+      ...eventData,
+      source: 'manual',
+    });
+
+    return {
+      success:       true,
+      eventId:       eventDoc._id,
+      summary:       eventDoc.summary,
+      date:          eventData.date,
+      startTime:     eventData.startTime,
+      endTime:       eventData.endTime,
+      company:       eventData.company || '',
+      googleSynced,
+      googleEventLink,
     };
   }
 }

@@ -186,6 +186,23 @@ PIPELINE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "requires_confirmation": True,
     },
 
+    "calendar_query": {
+        "endpoint": "/pipelines/calendar-query",
+        "type": "ACTION",
+        "risk": "LOW",
+        "description": (
+            "Query all scheduled calendar events (interviews, assessments) from the user's calendar. "
+            "Use this when the user asks: 'what interviews do I have scheduled', "
+            "'show my upcoming interviews', 'any interviews this week', "
+            "'what events are on my calendar', 'do I have any interviews coming up'. "
+            "Returns events from the CalendarEvent collection in MongoDB (created by cron or chatbot). "
+            "Do NOT use email_query for this — email_query searches emails, not calendar events."
+        ),
+        "required_args": [],
+        "optional_args": [],
+        "requires_confirmation": False,
+    },
+
     "extract_calendar_from_email": {
         "endpoint": "/pipelines/extract-calendar-from-email",
         "type": "ACTION",

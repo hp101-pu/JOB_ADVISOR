@@ -759,3 +759,68 @@
   .split-view .email-content-col { display: flex; width: 100%; height: 100%; }
   .compose-window { width: 100%; height: 100%; border-radius: 0; }
 }
+
+/* ── Calendar Action Button (INTERVIEW emails) ── */
+.calendar-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  transition: all 0.15s ease;
+  font-family: var(--font-sans);
+}
+
+.calendar-action-btn.not-added {
+  background: #eff6ff;
+  color: #2563eb;
+  border-color: #dbeafe;
+}
+.calendar-action-btn.not-added:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.calendar-action-btn.added {
+  background: #f0fdf4;
+  color: #16a34a;
+  border-color: #bbf7d0;
+}
+.calendar-action-btn.added:hover {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.calendar-action-btn.loading {
+  background: #f3f4f6;
+  color: #6b7280;
+  border-color: #e5e7eb;
+  cursor: not-allowed;
+}
+
+.calendar-action-btn .spin {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.calendar-status-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+.calendar-status-badge.added {
+  background: #16a34a;
+  color: #fff;
+}
+.calendar-status-badge.not-added {
+  background: #fbbf24;
+  color: #78350f;
+}

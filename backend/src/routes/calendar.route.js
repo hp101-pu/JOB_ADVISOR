@@ -2,11 +2,13 @@ import { Router } from "express";
 import { verifyJWT } from "../middleware/auth.middleware.js";
 import {
   createCalendarEvent,
+  createCalendarEventDirect,
   getCalendarAuthUrl,
   handleCalendarOAuthCallback,
   getCalendarEvents,
   getAllCalendarEvents,
   deleteCalendarEvent,
+  deleteCalendarEventByEmail,
   getCalendarConnectionStatus,
   disconnectCalendar,
 } from "../controllers/calendar.controller.js";
@@ -24,6 +26,8 @@ router.get("/status", getCalendarConnectionStatus);
 router.get("/events/all", getAllCalendarEvents);          // all DB events, no date filter
 router.get("/events", getCalendarEvents);                 // date-range, syncs from Google
 router.post("/events", createCalendarEvent);
+router.post("/events/direct", createCalendarEventDirect);
+router.delete("/events/by-email/:emailId", deleteCalendarEventByEmail);
 router.delete("/events/:googleEventId", deleteCalendarEvent); // delete from Google + DB
 router.delete("/disconnect", disconnectCalendar);
 

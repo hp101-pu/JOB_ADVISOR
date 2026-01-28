@@ -13,7 +13,7 @@ import mapEmailForUI from "../components/emails/EmailMapper.jsx";
 import AiReplyPreviewModal from "../components/emails/AiReplyPreviewModal.jsx"
 import "../styles/dashboard.css";
 import "../styles/email.css";
-import { getEmails,getSentEmails,getStarredEmails,toggleStarEmail,generateAiReplyPreview,sendAiReply,syncEmails,deleteEmail } from "../utils/api.js";
+import { getEmails,getSentEmails,getStarredEmails,toggleStarEmail,generateAiReplyPreview,sendAiReply,syncEmails,deleteEmail,addEmailToCalendar,removeEmailFromCalendar } from "../utils/api.js";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 
 export default function Emails() {
@@ -277,6 +277,42 @@ const handleDeleteEmail = async (email) => {
   }
 };
 
+const handleAddToCalendar = async (email) => {
+  try {
+    await addEmailToCalendar(email.id);
+    setEmails(prev =>
+      prev.map(e =>
+        e.id === email.id ? { ...e, calendarEventCreated: true, calendarEventDeleted: false } : e
+      )
+    );
+    setSelectedEmail(prev =>
+      prev?.id === email.id ? { ...prev, calendarEventCreated: true, calendarEventDeleted: false } : prev
+    );
+    console.log("[Emails] Added to calendar:", email.id);
+  } catch (err) {
+    console.error("Failed to add to calendar", err);
+    alert(err.message || "Failed to add to calendar");
+  }
+};
+
+const handleRemoveFromCalendar = async (email) => {
+  try {
+    await removeEmailFromCalendar(email.id);
+    setEmails(prev =>
+      prev.map(e =>
+        e.id === email.id ? { ...e, calendarEventCreated: false, calendarEventDeleted: true } : e
+      )
+    );
+    setSelectedEmail(prev =>
+      prev?.id === email.id ? { ...prev, calendarEventCreated: false, calendarEventDeleted: true } : prev
+    );
+    console.log("[Emails] Removed from calendar:", email.id);
+  } catch (err) {
+    console.error("Failed to remove from calendar", err);
+    alert(err.message || "Failed to remove from calendar");
+  }
+};
+
 
 
 const handleShowInbox = async () => {
@@ -354,6 +390,8 @@ const handleShowStarred = async () => {
   isAiLoading={isAiLoading}
   onToggleStar={handleToggleStar}
   onDelete={handleDeleteEmail}
+  onAddToCalendar={handleAddToCalendar}
+  onRemoveFromCalendar={handleRemoveFromCalendar}
 />
 
 

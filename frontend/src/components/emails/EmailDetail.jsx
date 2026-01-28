@@ -1,5 +1,5 @@
-import React from "react";
-import { Star, Trash2, X, Sparkles } from "lucide-react";
+import React, { useState } from "react";
+import { Star, Trash2, X, Sparkles, CalendarPlus, CalendarCheck, CalendarX, Loader2 } from "lucide-react";
 
 export default function EmailDetail({
   email,
@@ -9,7 +9,11 @@ export default function EmailDetail({
   isAiLoading,
   onDelete,
   onToggleStar,
+  onAddToCalendar,
+  onRemoveFromCalendar,
 }) {
+  const [calendarLoading, setCalendarLoading] = useState(false);
+
   if (!email) return null;
 
   if (email.isLoading) {
@@ -21,6 +25,29 @@ export default function EmailDetail({
       </div>
     );
   }
+
+  const isInterview = email.tag === "INTERVIEW";
+  const isInCalendar = email.calendarEventCreated && !email.calendarEventDeleted;
+
+  const handleAddToCalendar = async () => {
+    if (!onAddToCalendar) return;
+    setCalendarLoading(true);
+    try {
+      await onAddToCalendar(email);
+    } finally {
+      setCalendarLoading(false);
+    }
+  };
+
+  const handleRemoveFromCalendar = async () => {
+    if (!onRemoveFromCalendar) return;
+    setCalendarLoading(true);
+    try {
+      await onRemoveFromCalendar(email);
+    } finally {
+      setCalendarLoading(false);
+    }
+  };
 
   return (
     <div className="email-content-col">
@@ -79,6 +106,38 @@ export default function EmailDetail({
             </span>
           </div>
         </div>
+
+        {/* ── Calendar Button for INTERVIEW emails ── */}
+        {isInterview && (
+          <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 10 }}>
+            {calendarLoading ? (
+              <button className="calendar-action-btn loading" disabled>
+                <Loader2 size={14} strokeWidth={2} className="spin" />
+                <span>Processing…</span>
+              </button>
+            ) : isInCalendar ? (
+              <button
+                className="calendar-action-btn added"
+                onClick={handleRemoveFromCalendar}
+                title="Click to remove from calendar"
+              >
+                <CalendarCheck size={14} strokeWidth={2} />
+                <span>Added to Calendar</span>
+                <span className="calendar-status-badge added">✓ Synced</span>
+              </button>
+            ) : (
+              <button
+                className="calendar-action-btn not-added"
+                onClick={handleAddToCalendar}
+                title="Click to add to calendar"
+              >
+                <CalendarPlus size={14} strokeWidth={2} />
+                <span>Add to Calendar</span>
+                <span className="calendar-status-badge not-added">Not synced</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Body ── */}

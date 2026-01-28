@@ -630,6 +630,32 @@ export const deleteCalendarEvent = async (eventId) => {
   return true;
 };
 
+export const addEmailToCalendar = async (emailId) => {
+  const res = await fetch(`${BASE_URL}/calendar/events`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ emailId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || "Failed to add to calendar");
+  }
+  return res.json();
+};
+
+export const removeEmailFromCalendar = async (emailId) => {
+  const res = await fetch(`${BASE_URL}/calendar/events/by-email/${emailId}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || "Failed to remove from calendar");
+  }
+  return true;
+};
+
 export const disconnectCalendar = async () => {
   const res = await fetch(`${BASE_URL}/calendar/disconnect`, {
     method: "DELETE",

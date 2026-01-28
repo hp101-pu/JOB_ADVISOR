@@ -57,7 +57,10 @@ class CalendarService {
       end: endDate.toISOString(),
     });
 
-    const response = await fetch(`${API_BASE_URL}/calendar/events?${params}`, {
+    const url = `${API_BASE_URL}/calendar/events?${params}`;
+    console.log(`[CalendarService] GET ${url}`);
+
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

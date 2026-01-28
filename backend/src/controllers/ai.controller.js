@@ -5,7 +5,7 @@ const ASK_SEEKR_URL = process.env.ASK_SEEKR_URL || "http://localhost:9001";
 
 export async function aiChat(req, res) {
   try {
-    const { text, conversation_id, metadata } = req.body;
+    const { text, conversation_id, metadata, confirmed } = req.body;
 
     if (!text?.trim()) {
       return res.status(400).json({ error: "text is required" });
@@ -20,13 +20,15 @@ export async function aiChat(req, res) {
       return res.status(401).json({ error: "JWT missing" });
     }
 
+    console.log(`[aiChat] ASK_SEEKR_URL=${ASK_SEEKR_URL} | confirmed=${Boolean(confirmed)} | text="${text.slice(0, 60)}..."`);
+
     const response = await fetch(`${ASK_SEEKR_URL}/ask-seekr`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${jwt}`,
       },
-      body: JSON.stringify({ text, conversation_id, metadata: metadata || {} }),
+      body: JSON.stringify({ text, conversation_id, metadata: metadata || {}, confirmed: Boolean(confirmed) }),
     });
 
     if (!response.ok) {

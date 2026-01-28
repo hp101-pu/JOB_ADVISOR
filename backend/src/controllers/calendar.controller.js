@@ -59,6 +59,8 @@ export const getCalendarEvents = asyncHandler(async (req, res) => {
   const userId = req.user._id;
   const { start, end } = req.query;
 
+  console.log(`[calendar.controller.getCalendarEvents] userId=${userId} | start=${start} | end=${end}`);
+
   if (!start || !end) {
     throw new ApiError(400, 'Start and end dates are required');
   }
@@ -77,6 +79,8 @@ export const getCalendarEvents = asyncHandler(async (req, res) => {
     date: { $gte: startDate, $lte: endDate },
     deletedByUser: { $ne: true },
   }).sort({ date: 1 }).lean();
+
+  console.log(`[calendar.controller.getCalendarEvents] found=${events.length} | dates=${events.map(e => e.date.toISOString()).join(', ')}`);
 
   return res
     .status(200)
@@ -97,6 +101,46 @@ export const getAllCalendarEvents = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new ApiResponse(200, { events }, 'All calendar events fetched'));
+});
+
+/**
+ * Delete a calendar event by the source emailId.
+ * DELETE /api/calendar/events/by-email/:emailId
+ */
+export const deleteCalendarEventByEmail = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const { emailId } = req.params;
+
+  const dbEvent = await CalendarEvent.findOne({ userId, emailId });
+
+  if (!dbEvent) {
+    return res.status(404).json(new ApiResponse(404, {}, 'Event not found for this email'));
+  }
+
+  // Remove from Google Calendar only if it was pushed there
+  if (dbEvent.googleEventId) {
+    try {
+      await googleCalendarService.deleteEvent(userId, dbEvent.googleEventId);
+    } catch (err) {
+      console.warn('⚠️  Google delete failed (removing from DB anyway):', err.message);
+    }
+  }
+
+  // Soft-delete in MongoDB
+  await CalendarEvent.findByIdAndUpdate(dbEvent._id, { deletedByUser: true });
+
+  // Mark source email so cron never recreates this event
+  const { Email } = await import('../models/email.model.js');
+  await Email.findByIdAndUpdate(emailId, {
+    calendarEventCreated: false,
+    calendarEventDeleted: true,
+  });
+
+  console.log(`[calendar.controller.deleteCalendarEventByEmail] Removed event for email ${emailId}`);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, 'Event removed from calendar'));
 });
 
 /**
@@ -186,4 +230,48 @@ export const createCalendarEvent = asyncHandler(async (req, res) => {
 
   const result = await calendarService.createCalendarEventFromEmail(userId, emailId, jwt);
   return res.status(200).json(new ApiResponse(200, result, "Event created"));
+});
+
+/**
+ * Create a calendar event directly from structured data (not from email).
+ * Used by the chatbot's calendar_create_event pipeline.
+ *
+ * POST /api/calendar/events/direct
+ * Body: { summary, company, role, date, startTime, endTime, timezone, meetLink, description }
+ */
+export const createCalendarEventDirect = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const {
+    summary,
+    company,
+    role,
+    date,
+    startTime,
+    endTime,
+    timezone = 'Asia/Kolkata',
+    meetLink = '',
+    description = '',
+  } = req.body;
+
+  console.log(`[calendar.controller.createCalendarEventDirect] userId=${userId} | date=${date} | company=${company}`);
+
+  if (!date || !startTime || !endTime) {
+    throw new ApiError(400, 'date, startTime, and endTime are required');
+  }
+
+  const eventSummary = summary || `${company || 'Unknown'} Interview`;
+
+  const result = await calendarService.createCalendarEventDirect(userId, {
+    summary: eventSummary,
+    company: company || '',
+    role: role || '',
+    date,
+    startTime,
+    endTime,
+    timezone,
+    meetLink,
+    description,
+  });
+
+  return res.status(200).json(new ApiResponse(200, result, 'Calendar event created'));
 });

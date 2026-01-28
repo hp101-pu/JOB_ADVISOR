@@ -289,6 +289,90 @@
   margin: 8px 0 0;
 }
 
+/* ── Confirmation Prompt ── */
+.ai-confirmation-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  max-width: 820px;
+  align-self: flex-start;
+  animation: aiFadeIn 0.22s ease;
+}
+
+.ai-confirmation-row::before {
+  content: "";
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-primary);
+  border: 1.5px solid var(--border-color);
+  flex-shrink: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 9v4'%3E%3C/path%3E%3Cpath d='M12 17h.01'%3E%3C/path%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.ai-confirmation-bubble {
+  padding: 12px 16px;
+  border-radius: 16px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.65;
+  max-width: 680px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1.5px solid var(--border-color);
+  border-bottom-left-radius: 4px;
+  box-shadow: var(--shadow-xs);
+}
+
+.ai-confirmation-bubble p {
+  margin: 0 0 12px 0;
+}
+
+.ai-confirmation-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.ai-confirm-btn,
+.ai-cancel-btn {
+  padding: 7px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.15s;
+  font-family: var(--font-sans);
+  border: none;
+}
+
+.ai-confirm-btn {
+  background: var(--accent-gradient);
+  color: #fff;
+  box-shadow: var(--shadow-blue);
+}
+
+.ai-confirm-btn:hover {
+  opacity: 0.88;
+  transform: scale(1.03);
+}
+
+.ai-cancel-btn {
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  border: 1.5px solid var(--border-color);
+}
+
+.ai-cancel-btn:hover {
+  background: var(--danger-bg);
+  color: var(--danger-solid);
+  border-color: var(--danger-border);
+}
+
 /* ── Dark Mode ── */
 [data-theme="dark"] .ai-header,
 [data-theme="dark"] .ai-input-bar {

@@ -31,6 +31,9 @@ const mapEmailForUI = (email) => {
       email.type === "JOB"       ? "warning" :
       "default",
 
+    calendarEventCreated: email.calendarEventCreated || false,
+    calendarEventDeleted: email.calendarEventDeleted || false,
+
     read: email.isEmbedded,
   };
 };
