@@ -1,8 +1,8 @@
 # My calendar tool called in main.py.
 from googleapiclient.discovery import build
-from calendar_mcp.auth import get_calendar_credentials
-from calendar_mcp.utils import to_rfc3339
-from calendar_mcp.schemas import CalendarEventInput
+from auth import get_calendar_credentials
+from utils import to_rfc3339
+from schemas import CalendarEventInput
 
 
 

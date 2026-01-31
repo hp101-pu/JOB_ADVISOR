@@ -1,6 +1,6 @@
 from mcp.server.fastmcp import FastMCP
-from calendar_mcp.schemas import CalendarEventInput
-from calendar_mcp.calendar_service import create_calendar_event
+from schemas import CalendarEventInput
+from calendar_service import create_calendar_event
 
 mcp = FastMCP("calendar-mcp")
 

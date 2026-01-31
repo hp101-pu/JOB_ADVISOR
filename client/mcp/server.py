@@ -24,9 +24,10 @@ SERVERS = {
         "cwd": str(PROJECT_ROOT / "mcp_servers" / "job_search_mcp"),
         "transport": "stdio",
     },
-    #  "calendar": {
-    # "command": str(PYTHON),
-    # "args": ["main.py"],
-    # "cwd": str(PROJECT_ROOT / "mcp_servers" / "calendar_mcp"),
-    # "transport": "stdio",
+    "calendar": {
+        "command": str(PYTHON),
+        "args": ["main.py"],
+        "cwd": str(PROJECT_ROOT / "mcp_servers" / "calendar_mcp"),
+        "transport": "stdio",
+    },
 }

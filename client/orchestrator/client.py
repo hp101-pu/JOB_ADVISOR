@@ -19,6 +19,7 @@ from client.orchestrator.calendar_agent import create_calendar_event_pipeline
 from client.orchestrator.calendar_email_extractor import extract_calendar_from_email_pipeline
 from client.backend_client.email_query_api import query_emails_from_db
 from client.backend_client.email_digest_api import fetch_emails_for_digest
+from client.backend_client.calendar_query_api import query_calendar_events_from_db
 from client.ask_seekr.entrypoint import handle_user_message
 from pydantic import BaseModel
 from typing import Optional
@@ -397,6 +398,7 @@ async def calendar_create_event_endpoint(request: Request):
         start_time=start_time,
         end_time=end_time,
         user_id=user_id,
+        jwt=jwt,
         role=body.get("role"),
         timezone=body.get("timezone", "Asia/Kolkata"),
         meet_link=body.get("meetLink"),
@@ -406,6 +408,35 @@ async def calendar_create_event_endpoint(request: Request):
     print(f"📤 Calendar event response: success={result.get('success')}")
     
     return result
+
+
+
+@app.post("/pipelines/calendar-query")
+async def calendar_query_pipeline(request: Request):
+    """
+    Query all calendar events for the user from MongoDB.
+    Returns events from the CalendarEvent collection (created by cron or chatbot).
+    """
+    if request.headers.get("X-Service-Key") != SERVICE_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized service")
+
+    jwt = request.state.jwt
+
+    if not jwt:
+        raise HTTPException(status_code=401, detail="JWT missing")
+
+    print(f"[calendar_query] Fetching all calendar events")
+
+    result = await query_calendar_events_from_db(jwt=jwt)
+
+    data = result.get("data", {})
+    events = data.get("events", [])
+    print(f"[calendar_query] Found {len(events)} calendar events")
+
+    return {
+        "total": len(events),
+        "events": events,
+    }
 
 
 
@@ -580,6 +611,7 @@ class ChatRequest(BaseModel):
     text: str
     conversation_id: Optional[str] = None
     metadata: dict = {}
+    confirmed: bool = False
 
 
 @app.post("/ask-seekr")
@@ -593,12 +625,14 @@ async def ask_seekr(request: Request, body: ChatRequest):
         raise HTTPException(status_code=401, detail="Missing JWT")
 
     print("🟢 /ask-seekr called")
+    print(f"🔒 confirmed={body.confirmed}")
 
     response = await handle_user_message(
         jwt=jwt,
         user_message=body.text,
         conversation_id=body.conversation_id,
         metadata=body.metadata,
+        confirmed=body.confirmed,
     )
 
     return response
