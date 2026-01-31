@@ -4,8 +4,10 @@ import os
 import base64
 import json as _json
 
-ORCHESTRATOR_URL = "http://localhost:9000"
-_SERVICE_KEY = os.getenv("SERVICE_KEY", "abcd12345")
+ORCHESTRATOR_URL = os.getenv("ORCHESTRATOR_URL", "http://localhost:9000")
+_SERVICE_KEY = os.getenv("SERVICE_KEY")
+if not _SERVICE_KEY:
+    raise RuntimeError("SERVICE_KEY environment variable is not set")
 
 
 async def run_pipeline(
@@ -40,6 +42,8 @@ async def run_pipeline(
 
     url = f"{ORCHESTRATOR_URL}{endpoint}"
 
+    print(f"[executor] ORCHESTRATOR_URL={ORCHESTRATOR_URL} | endpoint={endpoint} | pipeline={pipeline_name} | userId={args.get('userId')}")
+
     headers = {
         "Authorization": f"Bearer {jwt}",
         "Content-Type": "application/json",
@@ -48,6 +52,8 @@ async def run_pipeline(
 
     async with httpx.AsyncClient(timeout=60) as client:
         response = await client.post(url, json=args, headers=headers)
+
+    print(f"[executor] response status={response.status_code} | body={response.text[:200]}")
 
     if response.status_code != 200:
         raise RuntimeError(

@@ -108,8 +108,15 @@ RULES (DO NOT BREAK)
    → ALWAYS use email_reply_preview pipeline.
 9. For email_query, extract the sender company name into args.sender
    (e.g. "desmus and co" → sender: "desmus", "amazon" → sender: "amazon").
-10. "scheduled interviews", "upcoming interviews", "my interviews", "interview emails"
-    → ALWAYS use email_query with args.type = "INTERVIEW", NEVER application_stats.
+10. ANY query about interviews, assessments, or events — with OR without dates
+    → ALWAYS use calendar_query pipeline (queries CalendarEvent collection).
+    This includes: "list all interviews", "show my interviews", "all my interviews",
+    "what interviews do I have", "interviews in July 2026", "events on 2025-07-15",
+    "what's on my calendar", "upcoming interviews", "interviews available in the calendar".
+    "interview emails", "show me interview emails", "what interview emails did I receive"
+    → use email_query with args.type = "INTERVIEW" (queries Email collection).
+    CRITICAL: If the user asks about interviews/assessments/events in any form,
+    use calendar_query UNLESS they explicitly say "emails".
 11. "how is my job search", "application status", "track my applications"
     → use application_stats pipeline.
 12. NEVER use application_stats for questions about specific email types like interviews.
@@ -192,13 +199,40 @@ User: Show me my offer emails / list my interview emails / any rejection emails?
   "reasoning": "User wants to see emails filtered by type. Use email_query with the type field."
 }}
 
-User: What interviews do I have scheduled? / Show my scheduled interviews / any upcoming interviews?
+User: What interviews do I have scheduled? / Show my scheduled interviews / any upcoming interviews? / Do I have any interviews coming up?
+{{
+  "type": "ACTION",
+  "pipeline": "calendar_query",
+  "args": {{}},
+  "confidence": 0.95,
+  "reasoning": "User wants to see scheduled calendar events (interviews, assessments). Use calendar_query to fetch from CalendarEvent collection, NOT email_query."
+}}
+
+User: List all interviews / show my interviews / all my interviews / what are all the interviews
+{{
+  "type": "ACTION",
+  "pipeline": "calendar_query",
+  "args": {{}},
+  "confidence": 0.95,
+  "reasoning": "User asks about all interviews. Use calendar_query to fetch from CalendarEvent collection. NOT email_query — email_query would only show INTERVIEW emails, not the actual scheduled calendar events."
+}}
+
+User: Mention all interviews in July 2026 / what interviews are on my calendar this month / events in 2026
+{{
+  "type": "ACTION",
+  "pipeline": "calendar_query",
+  "args": {{}},
+  "confidence": 0.95,
+  "reasoning": "User asks about interviews/events during a specific time period. Use calendar_query to fetch from CalendarEvent collection. NEVER email_query — email_query searches emails, not calendar events."
+}}
+
+User: Show me my interview emails / Any interview emails? / What interview emails did I receive?
 {{
   "type": "ACTION",
   "pipeline": "email_query",
   "args": {{"type": "INTERVIEW"}},
-  "confidence": 0.95,
-  "reasoning": "User wants interview emails. Use email_query with type=INTERVIEW, NOT application_stats."
+  "confidence": 0.92,
+  "reasoning": "User wants to see emails classified as INTERVIEW type. Use email_query with type=INTERVIEW."
 }}
 
 User: What emails did I receive this week? / Show me all my emails
@@ -208,6 +242,36 @@ User: What emails did I receive this week? / Show me all my emails
   "args": {{"period": "week"}},
   "confidence": 0.9,
   "reasoning": "User wants a summary/overview of emails. Use email_digest."
+}}
+
+User: Create a calendar event for my Google interview on 2025-07-15 from 14:00 to 15:00
+{{
+  "type": "ACTION",
+  "pipeline": "calendar_create_event",
+  "args": {{
+    "eventType": "interview",
+    "company": "Google",
+    "date": "2025-07-15",
+    "startTime": "14:00",
+    "endTime": "15:00"
+  }},
+  "confidence": 0.95,
+  "reasoning": "User wants to create a calendar event. Use calendar_create_event."
+}}
+
+User: Schedule my Amazon assessment on 2025-08-01 at 10:00
+{{
+  "type": "ACTION",
+  "pipeline": "calendar_create_event",
+  "args": {{
+    "eventType": "assessment",
+    "company": "Amazon",
+    "date": "2025-08-01",
+    "startTime": "10:00",
+    "endTime": "11:00"
+  }},
+  "confidence": 0.94,
+  "reasoning": "User wants to schedule a calendar event. Use calendar_create_event."
 }}
 
 User: Find jobs for me (profile has skills: ["React", "Node.js"], location: "Bangalore, India")

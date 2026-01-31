@@ -88,6 +88,7 @@ async def handle_user_message(
     user_message: str,
     conversation_id: Optional[str],
     metadata: Optional[Dict[str, Any]] = None,
+    confirmed: bool = False,
 ) -> Dict[str, Any]:
     """
     Core brain of Ask Seekr.
@@ -121,7 +122,9 @@ async def handle_user_message(
         metadata=metadata,
     )
 
-   
+    # Pass the user's confirmation flag into the plan for validator
+    plan["confirmed"] = confirmed
+
     if plan["type"] == "CHAT":
         # Generate a real conversational reply using the LLM
         from client.llm.openai_client import get_openai_client, get_openai_model
@@ -204,7 +207,7 @@ async def handle_user_message(
         return {
             "response": validation["message"],
             "conversation_id": conversation_id,
-            "metadata": {"plan": plan},
+            "metadata": {"plan": plan, "status": "BLOCKED"},
         }
 
     if validation["status"] == "NEEDS_CONFIRMATION":
@@ -218,7 +221,7 @@ async def handle_user_message(
         return {
             "response": validation["message"],
             "conversation_id": conversation_id,
-            "metadata": {"plan": plan},
+            "metadata": {"plan": plan, "status": "NEEDS_CONFIRMATION"},
         }
 
     # -----------------------------
@@ -319,8 +322,15 @@ async def handle_user_message(
     # -----------------------------
     # 9. Final response
     # -----------------------------
+    response_metadata = {"plan": plan}
+
+    # Pass through calendar event sync info for frontend display
+    if isinstance(result, dict) and plan.get("pipeline") == "calendar_create_event":
+        response_metadata["event_created"] = result.get("success", False)
+        response_metadata["google_synced"] = result.get("google_synced", False)
+
     return {
         "response": human_reply,
         "conversation_id": conversation_id,
-        "metadata": {"plan": plan},
+        "metadata": response_metadata,
     }

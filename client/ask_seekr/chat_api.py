@@ -27,6 +27,7 @@ class ChatRequest(BaseModel):
     text: str
     conversation_id: Optional[str] = None
     metadata: Dict[str, Any] = {}
+    confirmed: bool = False
 
 
 @app.post("/ask-seekr")
@@ -40,12 +41,14 @@ async def ask_seekr(request: Request, body: ChatRequest):
 
     print("🟢 /ask-seekr called")
     print("JWT (first 20 chars):", request.state.jwt[:20])
+    print(f"🔒 confirmed={body.confirmed}")
 
     response = await handle_user_message(
         jwt=request.state.jwt,
         user_message=body.text,
         conversation_id=body.conversation_id,
         metadata=body.metadata,
+        confirmed=body.confirmed,
     )
 
     return response

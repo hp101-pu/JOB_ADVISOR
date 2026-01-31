@@ -43,12 +43,12 @@ def validate_plan(plan: Dict[str, Any]) -> Dict[str, Any]:
             }
 
     
-    if cfg["risk"] == "HIGH":
+    if cfg["risk"] == "HIGH" and not plan.get("confirmed", False):
         return {
             "status": "BLOCKED",
             "message": (
-                "This action is considered high risk "
-                "and cannot be executed automatically."
+                "This action is considered high risk. "
+                "Please confirm before I proceed."
             )
         }
 
