@@ -454,9 +454,9 @@ const handleShowStarred = async () => {
       setAiPreviewDraft(null);
     }}
     onSend={async (draft) => {
-      // Later: call send-email backend
-      console.log("Sending draft:", draft);
+      await sendAiReply(draft);
       setAiPreviewDraft(null);
+      handleShowSent();
     }}
   />
 )}

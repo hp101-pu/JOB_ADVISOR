@@ -94,18 +94,51 @@ export const uploadAndParseResume = asyncHandler(async (req, res) => {
 
 /**
  * GET /api/resume
- * Fetch user's resume metadata + parsed result + score from MongoDB
+ * Fetch user's resume metadata + parsed result + score from MongoDB.
+ * If the stored score is stale (missing render_data or old scorer version),
+ * silently recalculates in the background and returns the fresh score.
  */
 export const getMyResume = asyncHandler(async (req, res) => {
   const userId = req.user?._id;
   if (!userId) throw new ApiError(401, "Unauthorized");
 
-  const resumeDoc = await Resume.findOne({ userId });
+  let resumeDoc = await Resume.findOne({ userId });
 
   if (!resumeDoc) {
     return res.status(200).json(
       new ApiResponse(200, { hasResume: false }, "No resume found")
     );
+  }
+
+  const token =
+    req.header("Authorization")?.replace("Bearer ", "") ||
+    req.cookies?.accessToken ||
+    null;
+
+  let score = resumeDoc.score || {};
+  const scorerVersion = score?.ats?.meta?.scorer;
+  const hasRenderData = !!score?.render_data;
+  const isStale = !hasRenderData || scorerVersion !== "ats_v4";
+
+  if (isStale && resumeDoc.parsed_resume?.entities) {
+    try {
+      const result = await resumeService.rescoreResume({
+        userId,
+        jwt: token,
+        parsed_resume: resumeDoc.parsed_resume,
+      });
+      if (result?.score?.final_score !== undefined) {
+        score = result.score;
+        // Update only the score field in MongoDB
+        resumeDoc = await Resume.findOneAndUpdate(
+          { userId },
+          { score },
+          { new: true }
+        );
+      }
+    } catch (recalcErr) {
+      console.warn("⚠️ Auto-recalculation failed, showing cached score:", recalcErr.message);
+    }
   }
 
   return res.status(200).json(
@@ -122,7 +155,7 @@ export const getMyResume = asyncHandler(async (req, res) => {
           openUrl:    resumeDoc.cloudinaryUrl,
         },
         parsed_resume: resumeDoc.parsed_resume || {},
-        score:         resumeDoc.score         || {},
+        score:         score,
         openUrl:       resumeDoc.cloudinaryUrl,
       },
       "Resume fetched successfully"

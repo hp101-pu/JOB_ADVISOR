@@ -2,25 +2,6 @@ import { Sparkles, TrendingUp, Zap, Target, ArrowRight, Lock } from "lucide-reac
 import { useNavigate } from "react-router-dom";
 import polishIllustration from "../../assets/polish-resume.png";
 
-const PROFILE_MAX = {
-  student:      { skills: 35, roles: 10, experience: 10, structure: 25, companies: 20 },
-  early_career: { skills: 38, roles: 15, experience: 15, structure: 17, companies: 15 },
-  professional: { skills: 40, roles: 20, experience: 20, structure: 10, companies: 10 },
-};
-
-const FLAG_LABELS = {
-  missing_education_section:       "Add an Education section with your degree & institution",
-  missing_experience_and_projects: "Add at least a Projects section to showcase your work",
-  no_experience_signal:            "Add projects or internships to show real-world experience",
-  missing_experience_section:      "Add a Work Experience section to strengthen your resume",
-  low_experience:                  "Limited work experience — add internships or projects",
-  intern_only_profile:             "Only intern-level roles found — consider adding projects",
-  no_company_signal:               "No company names detected — make sure employers are listed",
-  low_skill_count:                 "List more technical skills — aim for at least 8-10 technologies",
-  no_quantified_impact:            "Add numbers to project bullets (e.g. '3 modules', '50% faster')",
-  missing_skills:                  "Add a Skills section listing your technical & soft skills",
-};
-
 function relativeTime(dateStr) {
   if (!dateStr) return "unknown";
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -60,37 +41,12 @@ export default function ResumePolishCard({ resumeData }) {
 
   if (hasResume && score) {
     resumeScore = score.final_score ?? 0;
-    const breakdown = score.ats?.breakdown ?? {};
-    const profile   = score.ats?.meta?.profile ?? "professional";
-    const maxMap    = PROFILE_MAX[profile] ?? PROFILE_MAX.professional;
+    const dashboard = score.render_data?.dashboard ?? {};
 
-    // ATS Readiness — from final score
-    atsScore = resumeScore >= 80 ? "Excellent" : resumeScore >= 60 ? "Good" : "Needs Work";
-
-    // Impact — from structure score %
-    const structurePct = maxMap.structure > 0
-      ? ((breakdown.structure ?? 0) / maxMap.structure) * 100
-      : 0;
-    impactScore = structurePct >= 75 ? "Strong" : structurePct >= 50 ? "Moderate" : "Low";
-
-    // Skill Match — from skills score %
-    const skillsPct = maxMap.skills > 0
-      ? ((breakdown.skills ?? 0) / maxMap.skills) * 100
-      : 0;
-    skillAlign = skillsPct >= 85 ? "High" : skillsPct >= 60 ? "Medium" : "Low";
-
-    // Focus areas — flags + yellow/red llm feedback (max 3)
-    const flagItems = (score.ats?.flags ?? [])
-      .slice(0, 2)
-      .map(f => FLAG_LABELS[f] ?? f.replace(/_/g, " "));
-    const llmItems = (score.llm_feedback ?? [])
-      .filter(f => f?.severity === "yellow" || f?.severity === "red")
-      .slice(0, 2)
-      .map(f => (typeof f === "string" ? f : f?.text ?? ""))
-      .filter(Boolean);
-    focusAreas = [...flagItems, ...llmItems].slice(0, 3);
-
-    // Last analyzed timestamp
+    atsScore     = dashboard.atsReadiness   || "—";
+    impactScore  = dashboard.impact         || "—";
+    skillAlign   = dashboard.skillAlignment || "—";
+    focusAreas   = score.render_data?.focus_areas || [];
     lastAnalyzed = relativeTime(meta?.uploadedAt);
   }
 
@@ -145,21 +101,24 @@ export default function ResumePolishCard({ resumeData }) {
 
       {/* ── Metric pills ── */}
       <div className="polish-metrics">
-        {SCORE_METRICS.map(({ label, key, icon: Icon, color }) => (
-          <div
-            key={key}
-            className="polish-metric"
-            style={{ "--metric-color": hasResume ? color : "var(--text-secondary)" }}
-          >
-            <div className="polish-metric__icon">
-              <Icon size={14} strokeWidth={2} />
+        {SCORE_METRICS.map(({ label, key, icon, color }) => {
+          const Icon = icon;
+          return (
+            <div
+              key={key}
+              className="polish-metric"
+              style={{ "--metric-color": hasResume ? color : "var(--text-secondary)" }}
+            >
+              <div className="polish-metric__icon">
+                <Icon size={14} strokeWidth={2} />
+              </div>
+              <div className="polish-metric__text">
+                <span className="polish-metric__label">{label}</span>
+                <span className="polish-metric__value">{vals[key]}</span>
+              </div>
             </div>
-            <div className="polish-metric__text">
-              <span className="polish-metric__label">{label}</span>
-              <span className="polish-metric__value">{vals[key]}</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="polish-divider" />

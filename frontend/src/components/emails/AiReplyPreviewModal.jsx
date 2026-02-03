@@ -10,6 +10,8 @@ export default function AiReplyPreviewModal({
   if (!draft || !originalEmail) return null; // 🔒 HARD GUARD
 
   const [body, setBody] = useState(draft.body || "");
+  const [isSending, setIsSending] = useState(false);
+  const [sendError, setSendError] = useState(null);
 
   return (
     <div className="compose-overlay">
@@ -67,14 +69,34 @@ export default function AiReplyPreviewModal({
 
             <button
               className="btn-primary"
-              onClick={() =>
-                onSend({ ...draft, body })
-              }
+              disabled={isSending}
+              onClick={async () => {
+                setIsSending(true);
+                setSendError(null);
+                try {
+                  await onSend({ ...draft, body });
+                } catch (err) {
+                  setSendError(err.message || "Failed to send email");
+                } finally {
+                  setIsSending(false);
+                }
+              }}
             >
-              Send Email →
+              {isSending ? "Sending…" : "Send Email →"}
             </button>
           </div>
         </div>
+
+        {sendError && (
+          <div style={{
+            padding: "10px 16px",
+            color: "#dc2626",
+            fontSize: 13,
+            fontWeight: 500,
+          }}>
+            ⚠️ {sendError}
+          </div>
+        )}
 
       </div>
     </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Sidebar from "../components/layout/Sidebar";
 import TopHeader from "../components/layout/TopHeader";
-import { getCurrentUser, uploadResume, getMyResume, getResumeFileUrl, recalculateScore, deleteResume } from "../utils/api";
+import { getCurrentUser, uploadResume, getMyResume, getResumeFileUrl, deleteResume } from "../utils/api";
 
 import "../styles/dashboard.css";
 import "../styles/resume.css";
@@ -114,7 +114,7 @@ export default function Resume() {
         const score  = payload.score  || null;
         const parsed = payload.parsed_resume || null;
 
-        // pass full parsed_resume so ResumeMetadata has both entities + sections
+        // pass full parsed_resume so ResumeMetadata has both entities + structured
         if (parsed?.entities) {
           setMetadataData(parsed);
           setSavedMetadataData(parsed);
@@ -123,42 +123,9 @@ export default function Resume() {
           setSavedMetadataData(null);
         }
 
-        // Detect stale score: scorer version is not ats_v3
-        // If stale and parsed data exists, silently recalculate in the background
-        const scorerVersion = score?.ats?.meta?.scorer;
-        const isStaleScore  = scorerVersion !== "ats_v4";
-
-        if (isStaleScore && parsed?.entities) {
-          console.log(`🔄 Stale score detected (${scorerVersion ?? "none"}), recalculating with ats_v3...`);
-          try {
-            const recalcRes     = await recalculateScore();
-            const recalcPayload = recalcRes?.data;
-            if (recalcPayload?.score?.final_score !== undefined) {
-              setScoreData(recalcPayload.score);
-            }
-          } catch (recalcErr) {
-            // recalculation failed — fall back to showing the old score
-            console.warn("⚠️ Recalculation failed, showing cached score:", recalcErr.message);
-            if (score?.final_score !== undefined) setScoreData(score);
-          }
-        } else {
-          // Score is current — use as-is
-          if (score?.final_score !== undefined) {
-            setScoreData(score);
-            setSavedScoreData(score);
-          }
-          // back-fill llm_good/llm_improvement/llm_bad for old cached scores
-          // that only have llm_feedback so the UI renders gracefully
-          // Back-fill: old cached scores stored llm_feedback as plain strings.
-          // Wrap them as {text, severity: "yellow"} so the new UI renders them.
-          if (score?.llm_feedback?.length && typeof score.llm_feedback[0] === "string") {
-            const patched = {
-              ...score,
-              llm_feedback: score.llm_feedback.map(t => ({ text: t, severity: "yellow" }))
-            };
-            setScoreData(patched);
-            setSavedScoreData(patched);
-          }
+        if (score?.final_score !== undefined) {
+          setScoreData(score);
+          setSavedScoreData(score);
         }
       } catch (err) {
         console.error("Failed to load resume:", err);
@@ -302,7 +269,7 @@ export default function Resume() {
             onCalculate={handleCalculate}
           />
 
-          <ResumeMetadata metadataData={metadataData} />
+          <ResumeMetadata metadataData={metadataData} scoreData={scoreData} />
         </div>
       </main>
 

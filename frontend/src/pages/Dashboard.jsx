@@ -5,8 +5,9 @@ import "../styles/dashboard.css";
 import TopHeader from "../components/layout/TopHeader";
 import Sidebar from "../components/layout/Sidebar";
 
-import StatusCard from "../components/dashboard/StatusCard";
+import ResumeOverview from "../components/dashboard/ResumeOverview";
 import ResumePolishCard from "../components/dashboard/ResumePolishCard";
+import StatusCard from "../components/dashboard/StatusCard";
 import RecruiterActivity from "../components/dashboard/RecruiterActivity";
 import UpcomingEvents from "../components/dashboard/UpcomingEvents";
 import CalendarWidget from "../components/dashboard/CalendarWidget";
@@ -54,6 +55,12 @@ export default function Dashboard() {
     ? `Updated ${new Date(resumeData.data.resume.uploadedAt).toLocaleString()}`
     : "No resume found";
 
+  const parsed = resumeData?.data?.parsed_resume || {};
+  const entities = parsed.entities || {};
+  const skillsDetected = entities.skills?.length ?? 0;
+  const experienceYears = entities.experience_years ?? 0;
+  const experienceMonths = entities.experience_months ?? 0;
+
   if (loading) {
     return <div style={{ padding: "2rem" }}>Loading...</div>;
   }
@@ -67,12 +74,11 @@ export default function Dashboard() {
 
         {/* ── 2-card status row ── */}
         <div className="dashboard-status-grid">
-          <StatusCard
-            type="resume"
-            title="Resume"
-            statusText={hasResume ? "Parsed & Ready" : "Not Uploaded"}
-            lastUpdated={resumeTimestamp}
-            state={hasResume ? "success" : "error"}
+          <ResumeOverview
+            skillsDetected={hasResume ? skillsDetected : null}
+            experienceYears={hasResume ? experienceYears : null}
+            experienceMonths={hasResume ? experienceMonths : null}
+            lastUpdated={hasResume ? resumeTimestamp : "No resume uploaded"}
           />
           <StatusCard
             type="gmail"
