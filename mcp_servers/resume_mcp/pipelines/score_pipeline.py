@@ -20,4 +20,21 @@ class ScorePipeline:
             # score_adjustment is always 0 — final_score = pure ATS, LLM only provides feedback
             llm_feedback = llm_result["feedback"]  # list of {text, severity} dicts
 
-        return {"final_score": final_score, "ats": ats_result, "llm_feedback": llm_feedback}
+        # Merge LLM feedback into the backend-owned render_data
+        render_data = ats_result.get("render_data", {})
+        render_data["llm_feedback"] = llm_feedback
+
+        # Refresh focus areas now that LLM feedback is available
+        flag_texts = [f.get("text", "") for f in render_data.get("flags", [])]
+        llm_texts = [
+            f.get("text", "") for f in llm_feedback
+            if f.get("severity") in {"yellow", "red"}
+        ]
+        render_data["focus_areas"] = (flag_texts + llm_texts)[:3]
+
+        return {
+            "final_score":  final_score,
+            "ats":          ats_result,
+            "llm_feedback": llm_feedback,
+            "render_data":  render_data,
+        }

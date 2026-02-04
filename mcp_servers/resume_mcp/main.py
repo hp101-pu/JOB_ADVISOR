@@ -56,10 +56,11 @@ def parse_resume(file_b64: str):
         return {"status": "error", "error": "PDF_EXTRACTION_FAILED", "message": str(e)}
 
     print("[MCP SERVER] text extracted, running extract_resume...", flush=True, file=sys.stderr)
+    print(f"[MCP SERVER] raw text length={len(raw_text)}, first 200 chars: {repr(raw_text[:200])}", flush=True, file=sys.stderr)
 
     try:
-        result = extract_resume(raw_text)
-        print("[MCP SERVER] extract_resume done, returning ok", flush=True, file=sys.stderr)
+        result = extract_resume(raw_text, use_llm=True)
+        print(f"[MCP SERVER] extract_resume done (parser_version={result.get('parser_version', 'unknown')}), returning ok", flush=True, file=sys.stderr)
         return {"status": "ok", "result": result}
     except Exception as e:
         return {"status": "error", "error": "PARSE_FAILED", "message": str(e)}
