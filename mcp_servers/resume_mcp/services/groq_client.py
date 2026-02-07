@@ -48,7 +48,7 @@ class GroqClient:
         self.model   = os.getenv("GROQ_MODEL", DEFAULT_MODEL)
         self._client = Groq(api_key=self.api_key)
 
-    def complete(self, prompt: str) -> Dict[str, Any]:
+    def complete(self, prompt: str, max_tokens: int = 400, temperature: float = 0.2) -> Dict[str, Any]:
         """
         Call Groq and return the parsed JSON dict.
         Retries up to 3 times on 429 rate-limit errors with backoff.
@@ -65,8 +65,8 @@ class GroqClient:
                         {"role": "system", "content": _SYSTEM},
                         {"role": "user",   "content": prompt},
                     ],
-                    temperature=0.2,
-                    max_tokens=400,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
                 )
                 return _parse_json(resp.choices[0].message.content)
 
@@ -80,3 +80,38 @@ class GroqClient:
                 break
 
         return {}
+
+    def complete_raw(self, prompt: str, system: str = None, max_tokens: int = 4000, temperature: float = 0.1) -> str:
+        """
+        Call Groq and return the raw response string.
+        Used for large JSON outputs (e.g. resume extraction) where the caller
+        needs to parse the JSON separately with custom logic.
+        Returns empty string on failure.
+        """
+        if not prompt:
+            return ""
+
+        sys_msg = system if system else _SYSTEM
+
+        for attempt in range(3):
+            try:
+                resp = self._client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": sys_msg},
+                        {"role": "user",   "content": prompt},
+                    ],
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+                return resp.choices[0].message.content or ""
+
+            except Exception as e:
+                err = str(e)
+                if "429" in err or "rate_limit" in err.lower() or "rate limit" in err.lower():
+                    wait = (attempt + 1) * 10
+                    time.sleep(wait)
+                    continue
+                break
+
+        return ""

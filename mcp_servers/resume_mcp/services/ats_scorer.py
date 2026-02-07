@@ -5,20 +5,127 @@ from typing import Dict, List, Optional
 # ---------------------------------------------------------------------------
 # Profile detection constants
 # ---------------------------------------------------------------------------
-# A resume is treated as a STUDENT profile when:
-#   - total work experience < 12 months  AND
-#   - has an education section            AND
-#   - has a projects section  (their primary signal)
-#
-# EARLY_CAREER: has some experience (internship / <24 months) but no degree
-#   signal or clearly junior.
-#
-# PROFESSIONAL: everything else (>= 24 months experience).
-# ---------------------------------------------------------------------------
 
 PROFILE_STUDENT      = "student"
 PROFILE_EARLY_CAREER = "early_career"
 PROFILE_PROFESSIONAL = "professional"
+
+
+# ---------------------------------------------------------------------------
+# Frontend-render data — single source of truth for the UI
+# ---------------------------------------------------------------------------
+# Profile labels, colors, and descriptions
+PROFILE_RENDER_DATA = {
+    PROFILE_STUDENT: {
+        "label":       "Student Profile",
+        "color":       "#6366f1",
+        "description": "Scored on skills, projects & education — not work experience.",
+    },
+    PROFILE_EARLY_CAREER: {
+        "label":       "Early Career",
+        "color":       "#f59e0b",
+        "description": "Scored with lighter experience requirements for junior candidates.",
+    },
+    PROFILE_PROFESSIONAL: {
+        "label":       "Professional",
+        "color":       "#10b981",
+        "description": "Full scoring across all categories.",
+    },
+}
+
+# Per-profile breakdown labels and max weights
+# These are the canonical values the frontend should render.
+PROFILE_BREAKDOWN = {
+    PROFILE_STUDENT: {
+        "skills":     {"label": "Technical Skills", "max": 35},
+        "roles":      {"label": "Project Depth",    "max": 10},
+        "experience": {"label": "Activity Score",   "max": 10},
+        "structure":  {"label": "Resume Structure", "max": 25},
+        "companies":  {"label": "Internship Credit", "max": 20},
+    },
+    PROFILE_EARLY_CAREER: {
+        "skills":     {"label": "Technical Skills", "max": 38},
+        "roles":      {"label": "Role Experience",  "max": 15},
+        "experience": {"label": "Work Duration",    "max": 15},
+        "structure":  {"label": "Resume Structure", "max": 17},
+        "companies":  {"label": "Companies",        "max": 15},
+    },
+    PROFILE_PROFESSIONAL: {
+        "skills":     {"label": "Technical Skills", "max": 40},
+        "roles":      {"label": "Roles Detected",   "max": 20},
+        "experience": {"label": "Experience",       "max": 20},
+        "structure":  {"label": "Resume Structure", "max": 10},
+        "companies":  {"label": "Companies",        "max": 10},
+    },
+}
+
+# Human-readable flag labels (profile-aware)
+FLAG_LABELS = {
+    "missing_education_section":       "Add an Education section with your degree & institution",
+    "missing_experience_and_projects": "Add at least a Projects section to showcase your work",
+    "no_experience_signal":            "Add projects or internships to show real-world experience",
+    "missing_experience_section":      "Add a Work Experience section to strengthen your resume",
+    "low_experience":                  "Limited work experience — add internships or projects",
+    "intern_only_profile":             "Only intern-level roles found — consider adding projects or freelance work",
+    "no_company_signal":               "No company names detected — make sure employers are clearly listed",
+    "low_skill_count":                 "List more technical skills — aim for at least 8-10 technologies",
+    "no_quantified_impact":            "Add numbers to your project bullets (e.g. '3 modules', '50% faster') to show impact",
+    "missing_skills":                  "Add a Skills section listing your technical & soft skills",
+}
+
+
+def _score_color(percentage: float, profile: str, key: str) -> str:
+    """Return a color for a breakdown bar based on percentage and profile context."""
+    # Low-weight categories for students are expected to be low — render neutrally
+    if profile == PROFILE_STUDENT and key in {"roles", "experience", "companies"}:
+        return "#10b981" if percentage >= 60 else "#94a3b8"
+    if percentage >= 75:
+        return "#10b981"
+    if percentage >= 50:
+        return "#f59e0b"
+    return "#ef4444"
+
+
+def _score_label(final_score: int) -> str:
+    if final_score >= 80:
+        return "Excellent"
+    if final_score >= 60:
+        return "Good"
+    return "Needs Improvement"
+
+
+def _dashboard_metrics(final_score: int, breakdown: Dict, profile: str) -> Dict:
+    max_map = PROFILE_BREAKDOWN.get(profile, PROFILE_BREAKDOWN[PROFILE_PROFESSIONAL])
+
+    ats_readiness = (
+        "Excellent" if final_score >= 80 else
+        "Good"      if final_score >= 60 else
+        "Needs Work"
+    )
+
+    structure = breakdown.get("structure", 0)
+    structure_max = max_map.get("structure", {}).get("max", 1)
+    structure_pct = min((structure / structure_max) * 100, 100) if structure_max else 0
+    impact = (
+        "Strong"   if structure_pct >= 75 else
+        "Moderate" if structure_pct >= 50 else
+        "Low"
+    )
+
+    skills = breakdown.get("skills", 0)
+    skills_max = max_map.get("skills", {}).get("max", 1)
+    skills_pct = min((skills / skills_max) * 100, 100) if skills_max else 0
+    skill_alignment = (
+        "High"   if skills_pct >= 85 else
+        "Medium" if skills_pct >= 60 else
+        "Low"
+    )
+
+    return {
+        "atsReadiness":   ats_readiness,
+        "impact":         impact,
+        "skillAlignment": skill_alignment,
+    }
 
 
 class ATSScorer:
@@ -29,15 +136,10 @@ class ATSScorer:
     # -----------------------------------------------------------------------
     WEIGHTS = {
         PROFILE_STUDENT: {
-            # Skills still matter most — fair for everyone
             "skills":     35,
-            # Having ANY role title (intern / trainee counts fully)
             "roles":      10,
-            # Experience expected to be low → low weight, generous buckets
             "experience": 10,
-            # Structure: education + projects replace experience section
             "structure":  25,
-            # Companies: even 1 internship = full marks
             "companies":  20,
         },
         PROFILE_EARLY_CAREER: {
@@ -48,7 +150,6 @@ class ATSScorer:
             "companies":  15,
         },
         PROFILE_PROFESSIONAL: {
-            # Original weights — unchanged for experienced candidates
             "skills":     40,
             "roles":      20,
             "experience": 20,
@@ -57,10 +158,8 @@ class ATSScorer:
         },
     }
 
-    # Experience buckets per profile: (min_total_months, score)
-    # Student: 0 months → 6 pts baseline so they're not immediately penalised
-    # Early career: gentler ramp
-    # Professional: original strict buckets
+    # Experience buckets per profile: (min_total_months, absolute_score)
+    # These absolute scores are pre-calibrated to the profile weight above.
     EXP_BUCKETS = {
         PROFILE_STUDENT: [
             (0, 6), (3, 7), (6, 8), (12, 9), (18, 10),
@@ -73,64 +172,90 @@ class ATSScorer:
         ],
     }
 
+    # Keywords in project bullets that signal active developer role for students
+    _PROJECT_ROLE_RE = re.compile(
+        r"\b(building|built|developing|developed|designing|designed|"
+        r"implementing|implemented|integrating|integrated|creating|created|"
+        r"architecting|architected|deploying|deployed|engineering|engineered)"
+        r"\b",
+        re.IGNORECASE,
+    )
+
+    # Quantified impact markers in bullets (numbers/metrics signal stronger work)
+    _QUANT_RE = re.compile(
+        r"("
+        r"\d+\s*%|"
+        r"\d+\+\s*(problems?|questions?|users?|requests?|endpoints?|modules?|features?|pages?|clients?|contributions?)|"
+        r"\d+\+?\s*(users?|requests?|api|endpoints?|modules?|features?|pages?|clients?)|"
+        r"\d+x\b|"
+        r"\d+\s*(ms|seconds?|hrs?|hours?)"
+        r")",
+        re.IGNORECASE,
+    )
+
     # -----------------------------------------------------------------------
-    # Public API — identical signature, identical return shape
+    # Public API
     # -----------------------------------------------------------------------
     def score(self, resume: Dict, jd: Optional[Dict] = None) -> Dict:
-        e = dict(resume.get("entities", {}) or {})  # shallow copy so we can inject _proj_text
+        structured = resume.get("structured", {}) or {}
+        e = resume.get("entities", {}) or {}
         s = resume.get("sections", {}) or {}
 
-        # Inject project text so _roles can use it for student activity detection
-        e["_proj_text"] = s.get("projects", "") or ""
-
-        profile = self._detect_profile(e, s)
-        w       = self.WEIGHTS[profile]
+        profile = self._detect_profile(e, structured, s)
+        w = self.WEIGHTS[profile]
 
         breakdown = {
             "skills":     self._skills(e, jd, w),
-            "roles":      self._roles(e, jd, w, profile),
+            "roles":      self._roles(e, structured, jd, w, profile),
             "experience": self._experience(e, profile, w),
-            "structure":  self._structure(s, profile, w),
-            "companies":  self._companies(e, w, profile),
+            "structure":  self._structure(structured, s, profile, w),
+            "companies":  self._companies(e, structured, w, profile),
         }
+        flags = self._flags(e, structured, s, profile)
+        total_score = min(100, sum(breakdown.values()))
+
         return {
-            "total_score": min(100, sum(breakdown.values())),
+            "total_score": total_score,
             "breakdown":   breakdown,
-            "flags":       self._flags(e, s, profile),
+            "flags":       flags,
             "meta": {
                 "scorer":   "ats_v4",
                 "profile":  profile,
                 "jd_used":  bool(jd),
             },
+            "render_data": self._build_render_data(profile, breakdown, flags, resume),
         }
 
     # -----------------------------------------------------------------------
     # Profile detection
     # -----------------------------------------------------------------------
-    def _detect_profile(self, e: Dict, s: Dict) -> str:
-        total_months  = self._total_months(e)
-        has_education = bool(s.get("education", "").strip())
-        has_projects  = bool(s.get("projects",  "").strip())
-        seniority     = e.get("seniority", [])
+    def _detect_profile(self, e: Dict, structured: Dict, s: Dict) -> str:
+        total_months = self._total_months(e)
+        seniority = e.get("seniority", [])
 
-        # --- Primary override: entity extractor detected student signals ---
-        # is_student=True means the resume contains degree keywords + student
-        # phrases (GPA, semester, university, pursuing, year of study, etc.)
-        # This fires BEFORE month-counting so students with internships are
-        # never mis-classified as early_career.
+        # Prefer structured data; fall back to raw text sections for legacy resumes
+        has_education = bool(
+            (structured.get("education") and len(structured["education"]) > 0)
+            or s.get("education", "").strip()
+        )
+        has_projects = bool(
+            (structured.get("projects") and len(structured["projects"]) > 0)
+            or s.get("projects", "").strip()
+        )
+
+        # Primary override: entity extractor detected student signals
         if e.get("is_student") and total_months < 24:
             return PROFILE_STUDENT
 
-        # --- Legacy checks (kept as safety net) ---
-        # Student: very low experience + education present + projects as primary
+        # Student: low experience + education + projects
         if total_months < 12 and has_education and has_projects:
             return PROFILE_STUDENT
 
-        # Student without explicit education section but pure intern/trainee
+        # Student without explicit education but intern/trainee
         if total_months < 6 and ("intern" in seniority or "trainee" in seniority):
             return PROFILE_STUDENT
 
-        # Early career: some experience but not yet professional level
+        # Early career
         if total_months < 24:
             return PROFILE_EARLY_CAREER
 
@@ -145,6 +270,33 @@ class ATSScorer:
             or e.get("experience_years", 0) * 12 + e.get("experience_months", 0)
         )
 
+    def _text_from_details(self, items: List[Dict]) -> str:
+        """Concatenate detail arrays from structured items for regex scanning."""
+        parts = []
+        for item in items:
+            details = item.get("details", [])
+            if isinstance(details, list):
+                parts.extend(str(d) for d in details if d)
+            else:
+                parts.append(str(details))
+        return "\n".join(parts)
+
+    def _all_detail_text(self, structured: Dict) -> str:
+        """All detail text across projects, experience, volunteer, achievements."""
+        parts = []
+        for key in ["projects", "experience", "volunteer", "achievements"]:
+            items = structured.get(key, [])
+            if isinstance(items, list):
+                parts.append(self._text_from_details(items))
+        return "\n".join(parts)
+
+    def _has_section(self, key: str, structured: Dict, s: Dict) -> bool:
+        """Check section presence using structured data first, then raw sections."""
+        items = structured.get(key)
+        if isinstance(items, list) and len(items) > 0:
+            return True
+        return bool(s.get(key, "").strip())
+
     def _skills(self, e: Dict, jd: Optional[Dict], w: Dict) -> int:
         skills = set(e.get("skills", []))
         if not skills:
@@ -153,101 +305,63 @@ class ATSScorer:
         if jd and jd.get("skills"):
             ratio = len(skills & set(jd["skills"])) / max(len(jd["skills"]), 1)
             return int(max_w * min(ratio, 1.0))
-        # Full marks at 12+ skills (was 16 — too hard for students with focused stacks)
-        # Score scales linearly up to 12, capped at max_w
         return min(max_w, int(len(skills) * (max_w / 12)))
 
-    # Keywords in project bullets that signal active developer role for students
-    _PROJECT_ROLE_RE = re.compile(
-        r"\b(building|built|developing|developed|designing|designed|"
-        r"implementing|implemented|integrating|integrated|creating|created|"
-        r"architecting|architected|deploying|deployed|engineering|engineered)"
-        r"\b",
-        re.IGNORECASE,
-    )
-
-    def _roles(self, e: Dict, jd: Optional[Dict], w: Dict, profile: str) -> int:
+    def _roles(self, e: Dict, structured: Dict, jd: Optional[Dict], w: Dict, profile: str) -> int:
         roles = set(e.get("normalized_roles", []))
-        max_w    = w["roles"]
+        max_w = w["roles"]
         seniority = e.get("seniority", [])
 
         if not roles:
-            # For students with no formal role titles, check if project section
-            # shows active developer work — award up to 60% of role weight
+            # For students with no formal role titles, check project details for active verbs
             if profile == PROFILE_STUDENT:
-                proj_text = e.get("_proj_text", "")  # injected by score() below
+                proj_text = self._text_from_details(structured.get("projects", []))
                 if proj_text and self._PROJECT_ROLE_RE.search(proj_text):
                     return int(max_w * 0.6)
             return 0
 
-        # JD mismatch penalty — same for all profiles
+        # JD mismatch penalty
         if jd and jd.get("roles") and not (roles & set(jd["roles"])):
             max_w = int(max_w * 0.5)
 
-        # Intern/trainee seniority:
-        #   Student  → no penalty (expected)
-        #   Early    → mild penalty (0.8)
-        #   Pro      → steeper (0.5) — an intern title on a senior resume is a red flag
+        # Intern/trainee seniority penalty
         if "intern" in seniority or "trainee" in seniority:
             if profile == PROFILE_EARLY_CAREER:
                 max_w = int(max_w * 0.8)
             elif profile == PROFILE_PROFESSIONAL:
                 max_w = int(max_w * 0.5)
-            # PROFILE_STUDENT: no penalty at all
 
         return max_w
 
     def _experience(self, e: Dict, profile: str, w: Dict) -> int:
-        total   = self._total_months(e)
+        total = self._total_months(e)
         buckets = self.EXP_BUCKETS[profile]
-        max_w   = w["experience"]
-        for min_m, frac_score in reversed(buckets):
+        max_w = w["experience"]
+        for min_m, absolute_score in reversed(buckets):
             if total >= min_m:
-                # frac_score is already an absolute value relative to the
-                # old weight=20 scale — rescale to current profile weight
-                return min(max_w, frac_score)
+                # absolute_score is pre-calibrated for this profile's weight
+                return min(max_w, absolute_score)
         return 0
 
-    # Quantified impact markers in bullets (numbers/metrics signal stronger work)
-    _QUANT_RE = re.compile(
-        r"("
-        r"\d+\s*%|"                                                          # percentages: 50%
-        r"\d+\+\s*(problems?|questions?|users?|requests?|endpoints?|modules?|features?|pages?|clients?|contributions?)|"  # 380+ problems
-        r"\d+\+?\s*(users?|requests?|api|endpoints?|modules?|features?|pages?|clients?)|"  # numbers with units
-        r"\d+x\b|"                                                           # 3x faster
-        r"\d+\s*(ms|seconds?|hrs?|hours?)"                                   # time metrics
-        r")",
-        re.IGNORECASE,
-    )
-
-    def _structure(self, s: Dict, profile: str, w: Dict) -> int:
-        """
-        Professional: reward experience + skills + projects
-        Student/Early: richness-based scoring
-          - section presence (base)
-          - project depth: number of projects + bullet count
-          - education quality: has GPA/CGPA?
-          - quantified impact in bullets
-          - achievements + certifications bonus
-        """
+    def _structure(self, structured: Dict, s: Dict, profile: str, w: Dict) -> int:
         max_w = w["structure"]
 
         if profile == PROFILE_PROFESSIONAL:
             present = sum(
-                bool(s.get(k, "").strip())
+                self._has_section(k, structured, s)
                 for k in ["experience", "skills", "projects"]
             )
-            if present == 3: return max_w
-            if present == 2: return int(max_w * 0.7)
-            if s.get("projects", "").strip(): return int(max_w * 0.4)
+            if present == 3:
+                return max_w
+            if present == 2:
+                return int(max_w * 0.7)
+            if self._has_section("projects", structured, s):
+                return int(max_w * 0.4)
             return int(max_w * 0.2) if present else 0
 
-        # ---------------------------------------------------------------
-        # Student / Early career: richness-based
-        # ---------------------------------------------------------------
+        # Student / Early career: richness-based scoring
         score = 0.0
 
-        # 1. Section presence (base) — same weights as before but scaled to 0.70 of max
         section_weights = {
             "skills":       0.25,
             "projects":     0.25,
@@ -256,103 +370,104 @@ class ATSScorer:
             "achievements": 0.05,
         }
         for section, weight in section_weights.items():
-            if s.get(section, "").strip():
+            if self._has_section(section, structured, s):
                 score += max_w * weight
 
-        # 2. Project depth bonus (up to 10% of max_w)
-        proj_text = s.get("projects", "") or ""
-        if proj_text.strip():
-            # count non-empty lines as a proxy for bullet richness
-            proj_lines = [l for l in proj_text.split("\n") if l.strip()]
-            proj_line_count = len(proj_lines)
-            # 5+ lines = full depth bonus, scale linearly below that
-            depth_ratio = min(proj_line_count / 5.0, 1.0)
+        # Project depth bonus
+        projects = structured.get("projects", []) if isinstance(structured.get("projects"), list) else []
+        if projects:
+            bullet_count = sum(len(p.get("details", [])) for p in projects if isinstance(p, dict))
+            depth_ratio = min(bullet_count / 5.0, 1.0)
+            score += max_w * 0.10 * depth_ratio
+        elif s.get("projects", "").strip():
+            # Legacy fallback: count non-empty lines
+            proj_lines = [l for l in s.get("projects", "").split("\n") if l.strip()]
+            depth_ratio = min(len(proj_lines) / 5.0, 1.0)
             score += max_w * 0.10 * depth_ratio
 
-        # 3. Education quality bonus (up to 5% of max_w)
-        # Covers CGPA, CPI (MNNIT), GPA, SGPA, percentage — all common formats
-        edu_text = s.get("education", "") or ""
+        # Education quality bonus
+        edu_items = structured.get("education", []) if isinstance(structured.get("education"), list) else []
+        edu_text = "\n".join(
+            f"{item.get('degree', '')} {item.get('details', '')}" for item in edu_items if isinstance(item, dict)
+        )
+        if not edu_text.strip():
+            edu_text = s.get("education", "") or ""
         if re.search(r"(cgpa|cpi|gpa|sgpa|percentage)\s*[:/]?\s*[\d.]+", edu_text, re.IGNORECASE):
             score += max_w * 0.05
 
-        # 4. Quantified impact bonus (up to 5% of max_w)
-        # Scan projects + experience + achievements for numbers/metrics
-        combined_text = proj_text + "\n" + (s.get("experience", "") or "") + "\n" + (s.get("achievements", "") or "")
-        if self._QUANT_RE.search(combined_text):
+        # Quantified impact bonus
+        detail_text = self._all_detail_text(structured)
+        if not detail_text.strip():
+            detail_text = (
+                (s.get("projects", "") or "") + "\n" +
+                (s.get("experience", "") or "") + "\n" +
+                (s.get("achievements", "") or "")
+            )
+        if self._QUANT_RE.search(detail_text):
             score += max_w * 0.05
 
-        # 5. Certifications or volunteer show initiative
-        bonus_sections = ["certifications", "volunteer"]
-        if any(s.get(sec, "").strip() for sec in bonus_sections):
+        # Certifications or volunteer show initiative
+        has_cert = self._has_section("certifications", structured, s)
+        has_vol = self._has_section("volunteer", structured, s)
+        if has_cert or has_vol:
             score += max_w * 0.05
 
         return int(min(max_w, score))
 
-    def _companies(self, e: Dict, w: Dict, profile: str) -> int:
-        companies    = e.get("companies", [])
+    def _companies(self, e: Dict, structured: Dict, w: Dict, profile: str) -> int:
         total_months = self._total_months(e)
-        max_w        = w["companies"]
+        max_w = w["companies"]
+
+        # Prefer real companies from structured experience
+        exp_items = structured.get("experience", []) if isinstance(structured.get("experience"), list) else []
+        real_companies = [
+            item.get("company", "").strip()
+            for item in exp_items
+            if isinstance(item, dict) and item.get("company", "").strip()
+        ]
+        # Fallback to entity-extracted companies
+        companies = real_companies or e.get("companies", [])
+        has_projects = self._has_section("projects", structured, e)
 
         if not companies:
-            if profile == PROFILE_STUDENT:
-                # No company but active projects = partial credit (30%)
-                proj_text = e.get("_proj_text", "")
-                if proj_text and proj_text.strip():
-                    return int(max_w * 0.30)
+            if profile == PROFILE_STUDENT and has_projects:
+                return int(max_w * 0.30)
             return 0
 
         if profile == PROFILE_STUDENT:
-            # Companies list is non-empty, but we must verify the student has
-            # REAL work experience (not just volunteer/responsibility orgs that
-            # leaked through the entity extractor).
-            # Gate: require at least 1 month of real experience to award full marks.
-            # Without that gate a student with 0 internships but extracted
-            # volunteer org names ("SMP Mentor") incorrectly scores 20/20.
+            # Gate on real work duration to avoid volunteer orgs being treated as internships
             if total_months >= 1:
-                return max_w          # confirmed real internship → full marks
-            else:
-                # Companies detected but no actual work duration → likely
-                # volunteer/org names. Give same partial credit as projects-only.
-                proj_text = e.get("_proj_text", "")
-                return int(max_w * 0.30) if proj_text and proj_text.strip() else int(max_w * 0.15)
+                return max_w
+            return int(max_w * 0.30) if has_projects else int(max_w * 0.15)
 
         if profile == PROFILE_EARLY_CAREER:
             return max_w if len(companies) >= 2 else int(max_w * 0.7)
 
-        # Professional: original logic
         return max_w if len(companies) >= 2 else int(max_w * 0.6)
 
     # -----------------------------------------------------------------------
-    # Flags — profile-aware, no false alarms for students
+    # Flags
     # -----------------------------------------------------------------------
-    def _flags(self, e: Dict, s: Dict, profile: str) -> List[str]:
-        flags   = []
-        total   = self._total_months(e)
-        has_exp = bool(s.get("experience", "").strip())
-        has_proj = bool(s.get("projects",  "").strip())
+    def _flags(self, e: Dict, structured: Dict, s: Dict, profile: str) -> List[str]:
+        flags = []
+        total = self._total_months(e)
+        has_exp = self._has_section("experience", structured, s)
+        has_proj = self._has_section("projects", structured, s)
+        skills = e.get("skills", [])
 
-        # Skills missing — relevant for ALL profiles
-        if not e.get("skills"):
+        if not skills:
             flags.append("missing_skills")
 
         if profile == PROFILE_STUDENT:
-            # Students are not expected to have an experience section
-            # Only flag if they have NEITHER experience NOR projects
             if not has_exp and not has_proj:
                 flags.append("missing_experience_and_projects")
-            if not s.get("education", "").strip():
+            if not self._has_section("education", structured, s):
                 flags.append("missing_education_section")
-            # No company flag only if they have zero internships AND no projects
             if not e.get("companies") and not has_proj:
                 flags.append("no_experience_signal")
-            # Flag if skill count is low — students should list technologies prominently
-            if len(e.get("skills", [])) < 6:
+            if len(skills) < 6:
                 flags.append("low_skill_count")
-            # Flag if no quantified impact found in projects, experience, or achievements
-            proj_text  = s.get("projects", "") or ""
-            exp_text   = s.get("experience", "") or ""
-            achiev_text = s.get("achievements", "") or ""
-            if has_proj and not self._QUANT_RE.search(proj_text + "\n" + exp_text + "\n" + achiev_text):
+            if has_proj and not self._QUANT_RE.search(self._all_detail_text(structured)):
                 flags.append("no_quantified_impact")
 
         elif profile == PROFILE_EARLY_CAREER:
@@ -374,3 +489,51 @@ class ATSScorer:
                 flags.append("no_company_signal")
 
         return flags
+
+    # -----------------------------------------------------------------------
+    # Render data builder — frontend consumes this directly
+    # -----------------------------------------------------------------------
+    def _build_render_data(self, profile: str, breakdown: Dict, flags: List[str], resume: Dict) -> Dict:
+        profile_conf = PROFILE_RENDER_DATA.get(profile, PROFILE_RENDER_DATA[PROFILE_PROFESSIONAL])
+        max_map = PROFILE_BREAKDOWN.get(profile, PROFILE_BREAKDOWN[PROFILE_PROFESSIONAL])
+        final_score = min(100, sum(breakdown.values()))
+
+        render_breakdown = []
+        for key, value in breakdown.items():
+            meta = max_map.get(key, {"label": key.capitalize(), "max": 20})
+            max_val = meta["max"]
+            percentage = min((value / max_val) * 100, 100) if max_val else 0
+            render_breakdown.append({
+                "key":        key,
+                "label":      meta["label"],
+                "value":      value,
+                "max":        max_val,
+                "percentage": round(percentage, 1),
+                "color":      _score_color(percentage, profile, key),
+            })
+
+        render_flags = []
+        for flag in flags:
+            render_flags.append({
+                "severity": "yellow",
+                "text":     FLAG_LABELS.get(flag, flag.replace("_", " ").title()),
+                "type":     flag,
+            })
+
+        dashboard = _dashboard_metrics(final_score, breakdown, profile)
+        dashboard["lastAnalyzed"] = "just now"
+
+        return {
+            "profile": {
+                "key":         profile,
+                "label":       profile_conf["label"],
+                "description": profile_conf["description"],
+                "color":       profile_conf["color"],
+            },
+            "score_label":  _score_label(final_score),
+            "breakdown":    render_breakdown,
+            "flags":        render_flags,
+            "llm_feedback": [],  # populated by ScorePipeline after LLM call
+            "focus_areas":  [f["text"] for f in render_flags[:3]],
+            "dashboard":    dashboard,
+        }

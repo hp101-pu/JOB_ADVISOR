@@ -10,61 +10,69 @@ class LLMScorer:
 
     def evaluate(self, resume: dict, ats_result: dict, job_description=None, profile: str = "student") -> dict:
         """
-        Two small Groq calls instead of one large one.
+        Two small Groq calls:
         Call 1: strengths (green)
         Call 2: improvements (yellow) + critical (red)
-        score_adjustment removed - final score = pure ATS math only.
+        Uses structured resume data for specific, resume-aware feedback.
         """
-        e   = resume.get("entities", {}) or {}
-        s   = resume.get("sections",  {}) or {}
-        ctx = self._PROFILE_CTX.get(profile, self._PROFILE_CTX["student"])
-        skills_preview  = e.get("skills", [])[:10]
-        projects_text   = (s.get("projects",     "") or "")[:300]
-        experience_text = (s.get("experience",   "") or "")[:200]
-        education_text  = (s.get("education",    "") or "")[:150]
-        achieve_text    = (s.get("achievements", "") or "")[:150]
-        score           = ats_result.get("total_score", 0)
-        breakdown       = ats_result.get("breakdown", {})
+        e          = resume.get("entities", {}) or {}
+        s          = resume.get("sections", {}) or {}
+        structured = resume.get("structured", {}) or {}
+        ctx        = self._PROFILE_CTX.get(profile, self._PROFILE_CTX["student"])
 
-        # Shared context block reused in both prompts
+        score     = ats_result.get("total_score", 0)
+        breakdown = ats_result.get("breakdown", {})
+        flags     = ats_result.get("flags", [])
+
+        skills = e.get("skills", [])[:15]
+        projects = structured.get("projects", [])[:5]
+        experience = structured.get("experience", [])[:5]
+        education = structured.get("education", [])[:3]
+        achievements = structured.get("achievements", [])[:5]
+        volunteer = structured.get("volunteer", [])[:3]
+
         context = (
             f"Profile: {ctx}\n"
-            f"ATS: {score}/100  breakdown: {breakdown}\n"
-            f"Skills: {skills_preview}\n"
-            f"Projects: {projects_text}\n"
-            f"Experience: {experience_text}\n"
-            f"Education: {education_text}\n"
-            f"Achievements: {achieve_text}\n"
+            f"ATS score: {score}/100\n"
+            f"Breakdown: {breakdown}\n"
+            f"Flags: {flags}\n"
+            f"Skills: {skills}\n"
+            f"Projects: {projects}\n"
+            f"Experience: {experience}\n"
+            f"Education: {education}\n"
+            f"Achievements: {achievements}\n"
+            f"Volunteer / POR: {volunteer}\n"
         )
 
         feedback = []
 
-        # ── Call 1: Strengths only (no score_adjustment) ────────────────────────────────────────────────────
-        # score_adjustment intentionally removed — final score = pure ATS math only.
+        # ── Call 1: Strengths ────────────────────────────────────────────────────
         prompt1 = (
-            "You are an ATS resume reviewer.\n"
+            "You are an expert ATS resume reviewer.\n"
             + context
-            + "List 1-2 genuine strengths of this resume.\n"
+            + "\nBased ONLY on the structured resume above, list 1-2 genuine, specific strengths.\n"
             + 'Return ONLY valid JSON: {"strengths":["<one short sentence>"]}\n'
             + "No markdown. No explanation."
         )
         result1 = self.client.complete(prompt1)
-        strengths = result1.get("strengths", [])
+        strengths = result1.get("strengths", []) if isinstance(result1, dict) else []
         if isinstance(strengths, list):
             for t in strengths:
                 if t and isinstance(t, str):
                     feedback.append({"text": t.strip(), "severity": SEVERITY_GREEN})
-        adj = 0  # always 0 - ATS score is authoritative — ATS score is authoritative
 
-        # ── Call 2: Improvements + Critical ─────────────────────────────────────────
+        # ── Call 2: Improvements + Critical ──────────────────────────────────────
         prompt2 = (
-            f"You are an ATS resume reviewer.\n"
+            "You are an expert ATS resume reviewer.\n"
             f"{context}\n"
-            f"List 1-3 improvements needed (yellow) and 0-2 critical issues (red).\n"
-            f'Return ONLY: {{"improvements":["<sentence>"],"critical":["<sentence>"]}}\n'
-            f"improvements = things to improve, critical = must-fix issues. One short sentence each."
+            "Based ONLY on the structured resume above, list:\n"
+            "  - 1-3 specific improvements (yellow) the candidate should make\n"
+            "  - 0-2 critical issues (red) that are likely to hurt shortlisting\n"
+            'Return ONLY: {"improvements":["<sentence>"],"critical":["<sentence>"]}\n'
+            "Each item must be one short sentence and reference concrete details from the resume."
         )
         result2 = self.client.complete(prompt2)
+        result2 = result2 if isinstance(result2, dict) else {}
         improvements = result2.get("improvements", [])
         critical     = result2.get("critical", [])
         if isinstance(improvements, list):
@@ -78,7 +86,7 @@ class LLMScorer:
 
         return {
             "feedback":         feedback,
-            "score_adjustment": adj,
+            "score_adjustment": 0,
         }
 
     # ------------------------------------------------------------------ #
