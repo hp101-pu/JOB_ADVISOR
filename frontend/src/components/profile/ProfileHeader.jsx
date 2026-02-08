@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function ProfileHeader({ user, isEditing, toggleEdit, onAvatarClick, defaultAvatar }) {
+export default function ProfileHeader({ user, isEditing, toggleEdit, onAvatarClick, defaultAvatar, hasResume, isSyncing, onSyncFromResume }) {
   const avatarSrc = user.avatar || defaultAvatar;
 
   return (
@@ -30,6 +30,16 @@ export default function ProfileHeader({ user, isEditing, toggleEdit, onAvatarCli
         </div>
 
         <div className="profile-actions">
+          {hasResume && (
+            <button
+              className="btn-sync"
+              onClick={onSyncFromResume}
+              disabled={isSyncing}
+              title="Overwrite profile with resume data"
+            >
+              {isSyncing ? "Syncing..." : "Sync from Resume"}
+            </button>
+          )}
           <button className={`btn-edit ${isEditing ? 'active' : ''}`} onClick={toggleEdit}>
             {isEditing ? "Cancel" : "Edit Profile"}
           </button>

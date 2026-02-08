@@ -1,5 +1,7 @@
 import { User } from "../models/user.model.js";
+import { Resume } from "../models/resume.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { syncProfileFromResume } from "../services/profile.services.js";
 
 /* ============================= */
 /* GET MY PROFILE                */
@@ -29,6 +31,41 @@ const getMyProfile = asyncHandler(async (req, res) => {
   return res.status(200).json({
     success: true,
     profile: user,
+  });
+});
+
+/* ============================= */
+/* SYNC PROFILE FROM RESUME      */
+/* ============================= */
+
+const syncProfileFromResumeController = asyncHandler(async (req, res) => {
+  const userId = req.user?._id;
+
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      message: "Unauthorized",
+    });
+  }
+
+  const resumeDoc = await Resume.findOne({ userId });
+  if (!resumeDoc?.parsed_resume) {
+    return res.status(404).json({
+      success: false,
+      message: "No parsed resume found — upload a resume first",
+    });
+  }
+
+  const updatedUser = await syncProfileFromResume({
+    userId,
+    parsed_resume: resumeDoc.parsed_resume,
+    overwrite: true,
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: "Profile synced from resume",
+    profile: updatedUser,
   });
 });
 
@@ -318,6 +355,7 @@ const uploadAvatar = asyncHandler(async (req, res) => {
 
 export {
   getMyProfile,
+  syncProfileFromResumeController,
   updateMyProfile,
   uploadAvatar,
   updateSkills,

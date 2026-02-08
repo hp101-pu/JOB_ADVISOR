@@ -4,6 +4,7 @@ import { ApiResponse }   from "../utils/apiResponse.js";
 
 import { Resume }                   from "../models/resume.model.js";
 import { resumeService }            from "../services/resume.services.js";
+import { syncProfileFromResume }    from "../services/profile.services.js";
 import { uploadPdfToCloudinary }    from "../utils/cloudinary.js";
 
 /**
@@ -69,6 +70,26 @@ export const uploadAndParseResume = asyncHandler(async (req, res) => {
     },
     { upsert: true, new: true }
   );
+
+  // 4) Auto-fill empty profile fields from parsed resume (do not fail upload)
+  try {
+    const updatedUser = await syncProfileFromResume({
+      userId,
+      parsed_resume,
+      overwrite: false,
+    });
+    console.log(
+      `✅ Auto-filled profile for user ${userId}:`,
+      {
+        skills: updatedUser.skills?.length || 0,
+        experience: updatedUser.experience?.length || 0,
+        education: updatedUser.education?.length || 0,
+        headline: updatedUser.headline || "",
+      }
+    );
+  } catch (syncErr) {
+    console.warn(`⚠️ Auto-fill profile failed for user ${userId}:`, syncErr.message);
+  }
 
   return res.status(200).json(
     new ApiResponse(

@@ -1,6 +1,7 @@
 import express from "express";
 import {
   getMyProfile,
+  syncProfileFromResumeController,
   updateMyProfile,
   uploadAvatar,
   updateSkills,
@@ -18,6 +19,7 @@ import { upload } from "../middleware/multer.middleware.js";
 const router = express.Router();
 
 router.get("/me",verifyJWT,getMyProfile);
+router.post("/me/sync-from-resume", verifyJWT, syncProfileFromResumeController);
 router.patch( "/me",verifyJWT,updateMyProfile);
 //skills
 router.patch("/me/skills", verifyJWT, updateSkills);

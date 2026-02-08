@@ -99,7 +99,15 @@
   border: 1px solid var(--success-border);
 }
 
-.btn-edit {
+.profile-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.btn-edit,
+.btn-sync {
   padding: 8px 16px;
   border-radius: var(--radius-md);
   border: 1.5px solid var(--border-color);
@@ -111,11 +119,28 @@
   transition: background 0.15s, border-color 0.15s, transform 0.15s;
   font-family: var(--font-sans);
 }
+
 .btn-edit:hover,
 .btn-edit.active {
   background: var(--bg-hover);
   border-color: var(--border-strong);
   transform: translateY(-1px);
+}
+
+.btn-sync {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.btn-sync:hover:not(:disabled) {
+  background: var(--accent-primary);
+  color: white;
+  transform: translateY(-1px);
+}
+
+.btn-sync:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* ── Grid ── */
@@ -136,6 +161,44 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.profile-column-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 2px;
+}
+
+.profile-column-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 99px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.profile-column-badge.resume {
+  background: var(--accent-bg, rgba(99, 102, 241, 0.12));
+  color: var(--accent-primary, #6366f1);
+  border: 1px solid var(--accent-border, rgba(99, 102, 241, 0.35));
+}
+
+.profile-column-badge.manual {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.profile-column-title {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.profile-section-syncable {
+  border-left: 3px solid var(--accent-primary, #6366f1);
 }
 
 .profile-section {

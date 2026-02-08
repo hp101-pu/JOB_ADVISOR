@@ -331,6 +331,21 @@ export const getMyProfile = async () => {
   return data.profile;
 };
 
+// Sync profile from the parsed resume
+export const syncProfileFromResume = async () => {
+  const res = await fetch(`${BASE_URL}/profile/me/sync-from-resume`, {
+    method: "POST",
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to sync profile from resume");
+  }
+
+  const data = await res.json();
+  return data.profile;
+};
+
 // Update logged-in user's profile
 export const updateMyProfile = async (payload) => {
   const res = await fetch(`${BASE_URL}/profile/me`, {

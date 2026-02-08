@@ -13,8 +13,9 @@ import "../styles/profile.css";
 import SkillsModal from "../components/profile/SkillsModal";
 import {
   getMyProfile,
+  getMyResume,
+  syncProfileFromResume,
   updateMyProfile,
-  uploadAvatar,
   updateSkills,
   addExperience,
   updateExperience,
@@ -33,8 +34,10 @@ export default function Profile() {
   const [showExpModal, setShowExpModal] = useState(false);
   const [showEduModal, setShowEduModal] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
-  const [showSkillsModal, setShowSkillsModal] = useState(false); 
+  const [showSkillsModal, setShowSkillsModal] = useState(false);
   const [currentItem, setCurrentItem] = useState(null);
+  const [hasResume, setHasResume] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const [user, setUser] = useState({
     fullname: "",
@@ -52,7 +55,12 @@ export default function Profile() {
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const profile = await getMyProfile();
+        const [profile, resumeData] = await Promise.all([
+          getMyProfile(),
+          getMyResume().catch(() => ({ data: { hasResume: false } })),
+        ]);
+
+        setHasResume(resumeData?.data?.hasResume ?? false);
 
         // Normalize relative avatar paths to full URL
         const rawAvatar = profile.avatar || "";
@@ -106,6 +114,26 @@ export default function Profile() {
     } catch (err) {
       console.error("Failed to save avatar", err);
       alert("Failed to save profile picture. Please try again.");
+    }
+  };
+
+  const handleSyncFromResume = async () => {
+    setIsSyncing(true);
+    try {
+      const profile = await syncProfileFromResume();
+      setUser((prev) => ({
+        ...prev,
+        headline: profile.headline || prev.headline,
+        about: profile.about || prev.about,
+        skills: profile.skills || prev.skills,
+        experience: profile.experience || prev.experience,
+        education: profile.education || prev.education,
+      }));
+    } catch (err) {
+      console.error("Failed to sync profile from resume", err);
+      alert("Failed to sync profile from resume.");
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -244,12 +272,15 @@ export default function Profile() {
           title="Profile" 
         />
         <div className="profile-container">
-          <ProfileHeader 
-            user={user} 
-            isEditing={isEditing} 
-            toggleEdit={() => setIsEditing(!isEditing)} 
-            onAvatarClick={() => setShowAvatarModal(true)} 
-            defaultAvatar={DEFAULT_AVATAR} 
+          <ProfileHeader
+            user={user}
+            isEditing={isEditing}
+            toggleEdit={() => setIsEditing(!isEditing)}
+            onAvatarClick={() => setShowAvatarModal(true)}
+            defaultAvatar={DEFAULT_AVATAR}
+            hasResume={hasResume}
+            isSyncing={isSyncing}
+            onSyncFromResume={handleSyncFromResume}
           />
           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "-10px" }}>
             <button 

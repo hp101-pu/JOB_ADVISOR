@@ -14,76 +14,23 @@ export default function ProfileView({
 }) {
   return (
     <div className="profile-view-grid">
-      {/* ================= LEFT COLUMN ================= */}
+      {/* ================= SYNCABLE FROM RESUME ================= */}
       <div className="profile-left-col">
+        <div className="profile-column-heading">
+          <span className="profile-column-badge resume">Resume synced</span>
+          <span className="profile-column-title">Auto-filled from your resume</span>
+        </div>
+
         {/* ABOUT */}
-        <div className="card profile-section">
+        <div className="card profile-section profile-section-syncable">
           <h3>About Me</h3>
           <p className="profile-text">
             {user.about || "No bio added yet."}
           </p>
         </div>
 
-        {/* SOCIALS */}
-        <div className="card profile-section">
-          <h3>Socials</h3>
-          <div className="social-links-col">
-            {user.socials?.linkedin && (
-              <a
-                href={formatUrl(user.socials.linkedin)}  // ✅ FIXED
-                target="_blank"
-                rel="noreferrer"
-                className="social-link-item"
-              >
-                🔗 LinkedIn
-              </a>
-            )}
-
-            {user.socials?.github && (
-              <a
-                href={formatUrl(user.socials.github)}  // ✅ FIXED
-                target="_blank"
-                rel="noreferrer"
-                className="social-link-item"
-              >
-                🐙 GitHub
-              </a>
-            )}
-
-            {user.socials?.website && (
-              <a
-                href={formatUrl(user.socials.website)}  // ✅ FIXED
-                target="_blank"
-                rel="noreferrer"
-                className="social-link-item"
-              >
-                🌐 Portfolio
-              </a>
-            )}
-
-            {!user.socials?.linkedin &&
-              !user.socials?.github &&
-              !user.socials?.website && (
-                <span
-                  className="text-muted"
-                  style={{ fontSize: "13px" }}
-                >
-                  No social links added.
-                </span>
-              )}
-          </div>
-        </div>
-
-        {/* CONTACT */}
-        <div className="card profile-section">
-          <h3>Contact</h3>
-          <div className="contact-row">
-            <span className="icon">📧</span> {user.email}
-          </div>
-        </div>
-
         {/* SKILLS */}
-        <div className="card profile-section">
+        <div className="card profile-section profile-section-syncable">
           <div
             className="section-header-row"
             style={{
@@ -103,7 +50,7 @@ export default function ProfileView({
               ✎ Edit
             </button>
           </div>
-          
+
           <div className="skills-wrapper">
             {user.skills.length > 0 ? (
               user.skills.map((skill, index) => (
@@ -121,12 +68,9 @@ export default function ProfileView({
             )}
           </div>
         </div>
-      </div>  {/* ✅ FIXED: Added missing closing tag for profile-left-col */}
 
-      {/* ================= RIGHT COLUMN ================= */}
-      <div className="profile-right-col">
         {/* EXPERIENCE */}
-        <div className="card profile-section">
+        <div className="card profile-section profile-section-syncable">
           <div
             className="section-header-row"
             style={{
@@ -219,7 +163,7 @@ export default function ProfileView({
         </div>
 
         {/* EDUCATION */}
-        <div className="card profile-section">
+        <div className="card profile-section profile-section-syncable">
           <div
             className="section-header-row"
             style={{
@@ -283,6 +227,72 @@ export default function ProfileView({
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ================= MANUAL ONLY ================= */}
+      <div className="profile-right-col">
+        <div className="profile-column-heading">
+          <span className="profile-column-badge manual">Manual only</span>
+          <span className="profile-column-title">Not synced from resume</span>
+        </div>
+
+        {/* SOCIALS */}
+        <div className="card profile-section">
+          <h3>Socials</h3>
+          <div className="social-links-col">
+            {user.socials?.linkedin && (
+              <a
+                href={formatUrl(user.socials.linkedin)}
+                target="_blank"
+                rel="noreferrer"
+                className="social-link-item"
+              >
+                🔗 LinkedIn
+              </a>
+            )}
+
+            {user.socials?.github && (
+              <a
+                href={formatUrl(user.socials.github)}
+                target="_blank"
+                rel="noreferrer"
+                className="social-link-item"
+              >
+                🐙 GitHub
+              </a>
+            )}
+
+            {user.socials?.website && (
+              <a
+                href={formatUrl(user.socials.website)}
+                target="_blank"
+                rel="noreferrer"
+                className="social-link-item"
+              >
+                🌐 Portfolio
+              </a>
+            )}
+
+            {!user.socials?.linkedin &&
+              !user.socials?.github &&
+              !user.socials?.website && (
+                <span
+                  className="text-muted"
+                  style={{ fontSize: "13px" }}
+                >
+                  No social links added.
+                </span>
+              )}
+          </div>
+        </div>
+
+        {/* CONTACT */}
+        <div className="card profile-section">
+          <h3>Contact</h3>
+          <div className="contact-row">
+            <span className="icon">📧</span> {user.email}
           </div>
         </div>
       </div>
