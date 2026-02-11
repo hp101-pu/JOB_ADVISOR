@@ -11,7 +11,7 @@ Uses OpenAI chat.completions with a strict JSON-only prompt to decide:
 from typing import Dict, Any, List, Optional
 import json
 
-from client.ask_seekr.registry.pipeline_registry import PIPELINE_REGISTRY
+from client.ask_seekr.registry.pipeline_registry import PIPELINE_REGISTRY, requires_confirmation
 from client.llm.openai_client import get_openai_client, get_openai_model
 
 
@@ -369,7 +369,7 @@ Respond with JSON ONLY.
         "args": args,
         "missing": missing_args,
         "risk": pipeline_cfg["risk"],
-        "requires_confirmation": pipeline_cfg.get("requires_confirmation", False),
+        "requires_confirmation": requires_confirmation(pipeline_cfg),
         "confidence": decision.get("confidence", 0.8),
         "reasoning": decision.get("reasoning", f"Matched pipeline '{pipeline_name}'"),
     }

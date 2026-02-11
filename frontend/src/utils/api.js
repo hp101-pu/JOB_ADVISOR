@@ -679,3 +679,27 @@ export const disconnectCalendar = async () => {
   if (!res.ok) throw new Error("Failed to disconnect calendar");
   return true;
 };
+
+export const sendChatMessage = async ({ text, conversationId, confirmed = false }) => {
+  const res = await fetch(`${BASE_URL}/ai/chat`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      text,
+      conversation_id: conversationId,
+      metadata: {},
+      confirmed,
+    }),
+  });
+
+  if (res.status === 401) {
+    throw new Error("Session expired — please log in again.");
+  }
+
+  if (!res.ok) {
+    throw new Error("Request failed");
+  }
+
+  return res.json();
+};

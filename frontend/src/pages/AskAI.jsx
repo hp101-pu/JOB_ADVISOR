@@ -2,13 +2,9 @@ import React, { useState, useRef, useEffect } from "react";
 import { BotMessageSquare, SendHorizonal, Trash2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import Sidebar from "../components/layout/Sidebar";
+import { sendChatMessage } from "../utils/api";
 import "../styles/dashboard.css";
 import "../styles/askai.css";
-
-// ✅ Use the dedicated /api/ai/chat proxy — NOT /api/ai/execute.
-// Node's verifyJWT reads the httpOnly cookie and forwards the JWT as Bearer
-// to Python. conversation_id is scoped per user in Redis on the Python side.
-const CHAT_URL = "http://localhost:5000/api/ai/chat";
 
 const SUGGESTIONS = [
   "Summarize my recent rejection emails",
@@ -125,31 +121,11 @@ export default function AskAI() {
     setLoading(true);
 
     try {
-      // ✅ credentials:"include" sends httpOnly cookie to Node.
-      // Node verifies JWT, then forwards it as Bearer to Python /ask-seekr.
-      const res = await fetch(CHAT_URL, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: trimmed,
-          conversation_id: conversationId,
-          metadata: {},
-          confirmed,
-        }),
+      const data = await sendChatMessage({
+        text: trimmed,
+        conversationId,
+        confirmed,
       });
-
-      if (res.status === 401) {
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: "Session expired — please log in again." },
-        ]);
-        return;
-      }
-
-      if (!res.ok) throw new Error("Request failed");
-
-      const data = await res.json();
       const reply =
         typeof data.response === "string"
           ? data.response
@@ -172,10 +148,10 @@ export default function AskAI() {
 
         setMessages((prev) => [...prev, { role: "assistant", content: finalReply }]);
       }
-    } catch {
+    } catch (err) {
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Sorry, something went wrong. Please try again." },
+        { role: "assistant", content: err.message || "Sorry, something went wrong. Please try again." },
       ]);
     } finally {
       setLoading(false);

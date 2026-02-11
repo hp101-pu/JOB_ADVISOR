@@ -14,6 +14,11 @@ Rules:
 
 from typing import Dict, Any
 
+def requires_confirmation(pipeline_cfg: Dict[str, Any]) -> bool:
+    """Return True if the pipeline requires explicit user confirmation."""
+    return pipeline_cfg.get("risk") == "HIGH"
+
+
 PIPELINE_REGISTRY: Dict[str, Dict[str, Any]] = {
 
     # =========================================================
@@ -33,7 +38,6 @@ PIPELINE_REGISTRY: Dict[str, Dict[str, Any]] = {
             "page",
             "useResumeMatching",
         ],
-        "requires_confirmation": False,
     },
 
     "job_recommendations": {
@@ -43,7 +47,6 @@ PIPELINE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "description": "Get personalized job recommendations for the user",
         "required_args": [],
         "optional_args": ["maxResults"],
-        "requires_confirmation": False,
     },
 
     "job_categories": {
@@ -53,7 +56,6 @@ PIPELINE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "description": "Fetch available job categories",
         "required_args": [],
         "optional_args": ["country"],
-        "requires_confirmation": False,
     },
 
     # =========================================================
@@ -67,7 +69,6 @@ PIPELINE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "description": "Generate a draft reply for an email (preview only)",
         "required_args": ["messageId"],
         "optional_args": ["tone"],
-        "requires_confirmation": False,
     },
 
     "email_reply_send": {
@@ -77,7 +78,6 @@ PIPELINE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "description": "Send an email reply after explicit user approval",
         "required_args": ["draft"],
         "optional_args": [],
-        "requires_confirmation": True,
     },
 
     "email_sync": {
@@ -87,7 +87,6 @@ PIPELINE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "description": "Sync and store recent job-related emails",
         "required_args": [],
         "optional_args": [],
-        "requires_confirmation": False,
     },
     "email_query": {
         "endpoint": "/pipelines/email-query",
@@ -102,7 +101,6 @@ PIPELINE_REGISTRY: Dict[str, Dict[str, Any]] = {
         ),
         "required_args": [],
         "optional_args": ["sender", "type", "folder", "keyword", "limit"],
-        "requires_confirmation": False,
     },
 
     "email_digest": {
@@ -120,7 +118,6 @@ PIPELINE_REGISTRY: Dict[str, Dict[str, Any]] = {
         ),
         "required_args": [],
         "optional_args": ["period"],
-        "requires_confirmation": False,
     },
 
 
@@ -142,7 +139,6 @@ PIPELINE_REGISTRY: Dict[str, Dict[str, Any]] = {
         ),
         "required_args": [],
         "optional_args": ["period"],
-        "requires_confirmation": False,
     },
 
     "application_followup": {
@@ -158,7 +154,6 @@ PIPELINE_REGISTRY: Dict[str, Dict[str, Any]] = {
         ),
         "required_args": [],
         "optional_args": ["days"],
-        "requires_confirmation": False,
     },
 
     # =========================================================
@@ -183,7 +178,6 @@ PIPELINE_REGISTRY: Dict[str, Dict[str, Any]] = {
             "meetLink",
             "description",
         ],
-        "requires_confirmation": True,
     },
 
     "calendar_query": {
@@ -200,7 +194,6 @@ PIPELINE_REGISTRY: Dict[str, Dict[str, Any]] = {
         ),
         "required_args": [],
         "optional_args": [],
-        "requires_confirmation": False,
     },
 
     "extract_calendar_from_email": {
@@ -210,6 +203,5 @@ PIPELINE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "description": "Extract calendar event details from email content",
         "required_args": ["subject", "text"],
         "optional_args": [],
-        "requires_confirmation": False,
     },
 }
