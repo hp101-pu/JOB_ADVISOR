@@ -2,18 +2,10 @@ from typing import Optional, Dict, Any
 import base64
 import json as _jwt_json
 
-from client.ask_seekr.planner import planner_decide
-from client.ask_seekr.executor import run_pipeline
-from client.ask_seekr.validator import validate_plan
-from client.ask_seekr.profile_fetcher import fetch_user_profile
-import httpx
-import os
+from langgraph.types import Command
 
-NODE_API = os.getenv("NODE_API_URL", "http://localhost:5000")
-from client.ask_seekr.memory import (
-    get_conversation_context,
-    save_conversation_turn,
-)
+
+NODE_API_URL_ENV = __import__("os").getenv("NODE_API_URL", "http://localhost:5000")
 
 
 # -------------------------------------------------
@@ -93,8 +85,8 @@ async def handle_user_message(
     """
     Core brain of Ask Seekr.
 
-    Flow:
-    User → Planner → Validator → Executor → Memory
+    Delegates to the LangGraph state machine implemented under
+    client.ask_seekr.graph.
     """
 
     metadata = metadata or {}
@@ -109,228 +101,74 @@ async def handle_user_message(
     except Exception:
         pass
 
-    conversation_context = get_conversation_context(conversation_id, user_id)
+    from client.ask_seekr.graph.state import ChatState
+    from client.ask_seekr.graph.workflow import compiled_graph
 
-    # Fetch user profile and inject into metadata for the planner
-    user_profile = await fetch_user_profile(jwt)
-    if user_profile:
-        metadata["user_profile"] = user_profile
+    graph = compiled_graph()
 
-    plan = await planner_decide(
-        user_message=user_message,
-        conversation_context=conversation_context,
-        metadata=metadata,
-    )
+    # Use the conversation_id as the thread_id so interrupts/checkpoints are
+    # scoped per conversation.
+    config = {"configurable": {"thread_id": conversation_id or "default"}}
 
-    # Pass the user's confirmation flag into the plan for validator
-    plan["confirmed"] = confirmed
-
-    if plan["type"] == "CHAT":
-        # Generate a real conversational reply using the LLM
-        from client.llm.openai_client import get_openai_client, get_openai_model
-        client = get_openai_client()
-        model = get_openai_model()
-
-        context_messages = [
-            {"role": t["role"], "content": t["content"]}
-            for t in conversation_context
-        ]
-
-        # Build personalised system prompt from profile
-        p = metadata.get("user_profile", {})
-        if p:
-            name = p.get("fullname", "there")
-            first_name = name.split()[0] if name else "there"
-            age_str = f", {p['age']} years old" if p.get("age") else ""
-            role_str = f" Currently working as {p['current_role']} at {p['current_company']}." if p.get("current_role") else ""
-            edu_str = f" Studied {p['latest_degree']} at {p['latest_institution']}." if p.get("latest_degree") else ""
-            skills_str = f" Skills: {', '.join(p['skills'][:6])}." if p.get("skills") else ""
-            location_str = f" Based in {p['location_string']}." if p.get("location_string") else ""
-            otw_str = " They are currently open to work." if p.get("open_to_work") else ""
-            about_str = f" About them: {p['about']}." if p.get("about") else ""
-
-            personal_context = (
-                f"You are talking to {name}{age_str}.{location_str}{role_str}"
-                f"{edu_str}{skills_str}{otw_str}{about_str}\n"
-                f"Address them by their first name ({first_name}) naturally when appropriate. "
-                f"Use their background to give personalised, relevant advice."
-            )
-        else:
-            personal_context = "You don't have the user's profile yet — be helpful and friendly."
-
-        chat_response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are Seekr AI, a friendly and knowledgeable job search assistant. "
-                        "Help the user with their job search, career advice, interview tips, "
-                        "resume guidance, and anything related to finding a job. "
-                        "Be concise, warm, and helpful.\n\n"
-                        f"USER CONTEXT:\n{personal_context}"
-                    ),
-                },
-                *context_messages,
-                {"role": "user", "content": user_message},
-            ],
-            temperature=0.7,
-            max_tokens=500,
+    if confirmed:
+        # Resume an interrupted confirmation. If the thread is not waiting on
+        # an interrupt, LangGraph treats this as a fresh run and the confirmed
+        # flag flows through validation normally.
+        final_state = await graph.ainvoke(
+            Command(resume={"confirmed": True}),
+            config=config,
         )
+    else:
+        final_state = await _run_fresh(graph, user_message, jwt, user_id, conversation_id, metadata)
 
-        reply = chat_response.choices[0].message.content.strip()
-
-        save_conversation_turn(
-            conversation_id=conversation_id,
-            user_message=user_message,
-            assistant_message=reply,
-            user_id=user_id,
-        )
-
+    # LangGraph surfaces interrupts as a state key rather than raising.
+    if final_state.get("__interrupt__"):
         return {
-            "response": reply,
-            "conversation_id": conversation_id,
-            "metadata": {"plan": plan},
-        }
-
-
-    validation = validate_plan(plan)
-
-    if validation["status"] == "BLOCKED":
-        save_conversation_turn(
-            conversation_id=conversation_id,
-            user_message=user_message,
-            assistant_message=validation["message"],
-            user_id=user_id,
-        )
-
-        return {
-            "response": validation["message"],
-            "conversation_id": conversation_id,
-            "metadata": {"plan": plan, "status": "BLOCKED"},
-        }
-
-    if validation["status"] == "NEEDS_CONFIRMATION":
-        save_conversation_turn(
-            conversation_id=conversation_id,
-            user_message=user_message,
-            assistant_message=validation["message"],
-            user_id=user_id,
-        )
-
-        return {
-            "response": validation["message"],
-            "conversation_id": conversation_id,
-            "metadata": {"plan": plan, "status": "NEEDS_CONFIRMATION"},
-        }
-
-    # -----------------------------
-    # 5. Resolve missing messageId for email_reply_preview
-    # -----------------------------
-    if plan["pipeline"] == "email_reply_preview" and not plan["args"].get("messageId"):
-        resolved_id = await _resolve_message_id(
-            user_message=user_message,
-            jwt=jwt,
-        )
-        if not resolved_id:
-            reply = (
-                "I couldn't find that email in your inbox. "
-                "Could you be more specific — e.g. the subject line or sender's name?"
-            )
-            save_conversation_turn(conversation_id, user_message, reply)
-            return {"response": reply, "conversation_id": conversation_id, "metadata": {"plan": plan}}
-        plan["args"]["messageId"] = resolved_id
-
-    # -----------------------------
-    # 6. Execute pipeline
-    # -----------------------------
-    result = await run_pipeline(
-        pipeline_name=plan["pipeline"],
-        endpoint=plan["endpoint"],
-        args=plan["args"],
-        jwt=jwt,
-    )
-
-    # -----------------------------
-    # 7. Summarize result into human-readable reply
-    # -----------------------------
-    from client.llm.openai_client import get_openai_client, get_openai_model
-    import json as _json
-
-    _client = get_openai_client()
-    _model = get_openai_model()
-
-    try:
-        result_text = _json.dumps(result, indent=2) if isinstance(result, dict) else str(result)
-    except Exception:
-        result_text = str(result)
-
-    summary_response = _client.chat.completions.create(
-        model=_model,
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are Seekr AI, a precise and friendly job search assistant. "
-                    "You will be given raw pipeline result data and must summarize it for the user. "
-                    "\n\n"
-                    "STRICT ACCURACY RULES — YOU MUST FOLLOW THESE:\n"
-                    "1. NEVER invent, infer, or assume any information not explicitly present in the data.\n"
-                    "2. Use EXACT values from the data: sender names, company names, email subjects, counts, dates.\n"
-                    "3. If the data says 'from' is 'Ritvik Rai <rai.ritvik2005@gmail.com>', the sender is 'Ritvik Rai', NOT 'Gmail'.\n"
-                    "4. Only mention things that are ACTUALLY in the data. If there are 0 rejections, do not mention rejections.\n"
-                    "5. If a count is 0, do not say 'no X yet' — simply omit that category entirely.\n"
-                    "6. Do NOT infer application status from email types unless explicitly stated in the data.\n"
-                    "7. For emails: use the 'subject', 'from', and 'type' fields exactly as given.\n"
-                    "8. For jobs: use the exact title, company, salary, and URL from the data.\n"
-                    "\n"
-                    "FORMAT RULES:\n"
-                    "- Be concise, warm, and friendly.\n"
-                    "- Use markdown: bold for names/companies, bullet points for lists.\n"
-                    "- Keep it under 250 words.\n"
-                    "- Never show raw JSON or field names like 'emailId', '_id', 'lastSubject', 'emailCount', 'lastContact'.\n"
-                    "- For interview emails: show the subject, sender, date naturally. E.g. '**Flipkart** — Interview Scheduled for March 30 at 10:30 AM'.\n"
-                    "- Never use technical grouping fields. Present each email as a human-readable item.\n"
-                    "- If data has a meeting link, show it as a clickable link."
-                ),
+            "response": final_state.get("response", "Please confirm this action."),
+            "conversation_id": final_state.get("conversation_id"),
+            "metadata": {
+                "plan": final_state.get("plan", {}),
+                "status": "NEEDS_CONFIRMATION",
             },
-            {"role": "user", "content": f"User asked: {user_message}"},
-            {"role": "assistant", "content": f"Pipeline result data (use ONLY this data, nothing else):\n{result_text}"},
-            {"role": "user", "content": "Summarize this accurately using only the data above. Do not invent anything."},
-        ],
-        temperature=0.1,
-        max_tokens=600,
-    )
-
-    human_reply = summary_response.choices[0].message.content.strip()
-
-    # -----------------------------
-    # 8. Persist memory
-    # -----------------------------
-    # NEVER save the raw pipeline result or human_reply (which contains real
-    # email/job data) into conversation history. The LLM will repeat it as
-    # fact on every future turn — even for different users after logout.
-    # Save only a short neutral note about what action was taken.
-    memory_note = f"Ran pipeline '{plan['pipeline']}' successfully."
-    save_conversation_turn(
-        conversation_id=conversation_id,
-        user_message=user_message,
-        assistant_message=memory_note,
-        user_id=user_id,
-    )
-
-    # -----------------------------
-    # 9. Final response
-    # -----------------------------
-    response_metadata = {"plan": plan}
-
-    # Pass through calendar event sync info for frontend display
-    if isinstance(result, dict) and plan.get("pipeline") == "calendar_create_event":
-        response_metadata["event_created"] = result.get("success", False)
-        response_metadata["google_synced"] = result.get("google_synced", False)
+        }
 
     return {
-        "response": human_reply,
-        "conversation_id": conversation_id,
-        "metadata": response_metadata,
+        "response": final_state.get("response", ""),
+        "conversation_id": final_state.get("conversation_id"),
+        "metadata": final_state.get("response_metadata", {}),
     }
+
+
+async def _run_fresh(
+    graph,
+    user_message: str,
+    jwt: str,
+    user_id: str,
+    conversation_id: Optional[str],
+    metadata: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Start a fresh graph run and surface NEEDS_CONFIRMATION interrupts."""
+    from client.ask_seekr.graph.state import ChatState
+
+    initial_state: ChatState = {
+        "user_message": user_message,
+        "jwt": jwt,
+        "user_id": user_id,
+        "conversation_id": conversation_id,
+        "confirmed": False,
+        "metadata": metadata or {},
+        "conversation_context": [],
+        "user_profile": {},
+        "intent": "",
+        "plan": {},
+        "status": "",
+        "message": "",
+        "pipeline_result": None,
+        "response": "",
+        "response_metadata": {},
+        "stream_tokens": [],
+    }
+
+    config = {"configurable": {"thread_id": conversation_id or "default"}}
+
+    return await graph.ainvoke(initial_state, config=config)

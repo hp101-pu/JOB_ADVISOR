@@ -44,6 +44,57 @@ export async function aiChat(req, res) {
   }
 }
 
+export async function aiChatStream(req, res) {
+  try {
+    const { text, conversation_id, metadata, confirmed } = req.body;
+
+    if (!text?.trim()) {
+      return res.status(400).json({ error: "text is required" });
+    }
+
+    const jwt =
+      req.headers.authorization?.replace("Bearer ", "") ||
+      req.cookies?.accessToken;
+
+    if (!jwt) {
+      return res.status(401).json({ error: "JWT missing" });
+    }
+
+    console.log(`[aiChatStream] ASK_SEEKR_URL=${ASK_SEEKR_URL} | confirmed=${Boolean(confirmed)} | text="${text.slice(0, 60)}..."`);
+
+    const response = await fetch(`${ASK_SEEKR_URL}/ask-seekr/stream`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${jwt}`,
+      },
+      body: JSON.stringify({ text, conversation_id, metadata: metadata || {}, confirmed: Boolean(confirmed) }),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      return res.status(response.status).json({ error: err });
+    }
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    for await (const chunk of response.body) {
+      res.write(chunk);
+    }
+    res.end();
+  } catch (err) {
+    console.error("❌ aiChatStream failed:", err.message);
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message });
+    } else {
+      res.end();
+    }
+  }
+}
+
+
 export async function aiExecute(req, res) {
   try {
     const { endpoint, args } = req.body;

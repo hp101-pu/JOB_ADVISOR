@@ -703,3 +703,72 @@ export const sendChatMessage = async ({ text, conversationId, confirmed = false 
 
   return res.json();
 };
+
+export const streamChatMessage = ({ text, conversationId, confirmed = false, onChunk, onDone, onError }) => {
+  const url = `${BASE_URL}/ai/chat/stream`;
+  const responseRef = { current: "" };
+
+  fetch(url, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      text,
+      conversation_id: conversationId,
+      metadata: {},
+      confirmed,
+    }),
+  })
+    .then((res) => {
+      if (res.status === 401) {
+        throw new Error("Session expired — please log in again.");
+      }
+      if (!res.ok) {
+        throw new Error("Request failed");
+      }
+      if (!res.body) {
+        throw new Error("Streaming not supported by this browser");
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+
+      const read = () => {
+        reader.read().then(({ done, value }) => {
+          if (done) {
+            onDone?.();
+            return;
+          }
+
+          const text = decoder.decode(value, { stream: true });
+          const lines = text.split("\n");
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const data = line.slice(6).trim();
+            if (!data) continue;
+
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.type === "final" || parsed.type === "interrupt") {
+                responseRef.current = parsed;
+              }
+              onChunk?.(parsed, responseRef.current);
+            } catch (err) {
+              // Ignore malformed SSE lines
+            }
+          }
+
+          read();
+        }).catch((err) => {
+          onError?.(err);
+        });
+      };
+
+      read();
+    })
+    .catch((err) => {
+      onError?.(err);
+    });
+
+  return responseRef;
+};

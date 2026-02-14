@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { BotMessageSquare, SendHorizonal, Trash2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import Sidebar from "../components/layout/Sidebar";
-import { sendChatMessage } from "../utils/api";
+import { sendChatMessage, streamChatMessage } from "../utils/api";
 import "../styles/dashboard.css";
 import "../styles/askai.css";
 
@@ -120,43 +120,112 @@ export default function AskAI() {
     }
     setLoading(true);
 
-    try {
-      const data = await sendChatMessage({
-        text: trimmed,
-        conversationId,
-        confirmed,
-      });
-      const reply =
-        typeof data.response === "string"
-          ? data.response
-          : JSON.stringify(data.response, null, 2);
+    // Confirmation resumes use the simple JSON endpoint for reliability.
+    if (confirmed) {
+      try {
+        const data = await sendChatMessage({
+          text: trimmed,
+          conversationId,
+          confirmed,
+        });
+        const reply =
+          typeof data.response === "string"
+            ? data.response
+            : JSON.stringify(data.response, null, 2);
 
-      if (data.metadata?.status === "NEEDS_CONFIRMATION") {
-        setPendingConfirmation({ text: trimmed, reply });
-      } else {
-        setPendingConfirmation(null);
-
-        // Check if the response includes Google Calendar sync info
-        const meta = data.metadata || {};
-        let finalReply = reply;
-
-        if (meta.google_synced === false && meta.event_created) {
-          finalReply = reply + "\n\n*Saved to your app calendar. Not synced to Google Calendar — connect your Google Calendar in Settings to sync.*";
-        } else if (meta.google_synced === true && meta.event_created) {
-          finalReply = reply + "\n\n*Event saved and synced to Google Calendar.*";
+        if (data.metadata?.status === "NEEDS_CONFIRMATION") {
+          setPendingConfirmation({ text: trimmed, reply });
+        } else {
+          setPendingConfirmation(null);
+          const meta = data.metadata || {};
+          let finalReply = reply;
+          if (meta.google_synced === false && meta.event_created) {
+            finalReply = reply + "\n\n*Saved to your app calendar. Not synced to Google Calendar — connect your Google Calendar in Settings to sync.*";
+          } else if (meta.google_synced === true && meta.event_created) {
+            finalReply = reply + "\n\n*Event saved and synced to Google Calendar.*";
+          }
+          setMessages((prev) => [...prev, { role: "assistant", content: finalReply }]);
         }
-
-        setMessages((prev) => [...prev, { role: "assistant", content: finalReply }]);
+      } catch (err) {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: err.message || "Sorry, something went wrong. Please try again." },
+        ]);
+      } finally {
+        setLoading(false);
+        inputRef.current?.focus();
       }
-    } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: err.message || "Sorry, something went wrong. Please try again." },
-      ]);
-    } finally {
-      setLoading(false);
-      inputRef.current?.focus();
+      return;
     }
+
+    // Normal sends use SSE to show progress and the final response.
+    const assistantIndexRef = { current: null };
+    setMessages((prev) => {
+      const next = [...prev, { role: "assistant", content: "Seekr is thinking…" }];
+      assistantIndexRef.current = next.length - 1;
+      return next;
+    });
+
+    streamChatMessage({
+      text: trimmed,
+      conversationId,
+      confirmed,
+      onChunk: (chunk) => {
+        if (chunk.type === "node") {
+          setMessages((prev) => {
+            const idx = assistantIndexRef.current;
+            if (idx === null || idx >= prev.length) return prev;
+            const next = [...prev];
+            next[idx] = { role: "assistant", content: `Seekr is working (${chunk.node})…` };
+            return next;
+          });
+        }
+        if (chunk.type === "final") {
+          const meta = chunk.metadata || {};
+          let finalReply = chunk.response;
+          if (meta.google_synced === false && meta.event_created) {
+            finalReply += "\n\n*Saved to your app calendar. Not synced to Google Calendar — connect your Google Calendar in Settings to sync.*";
+          } else if (meta.google_synced === true && meta.event_created) {
+            finalReply += "\n\n*Event saved and synced to Google Calendar.*";
+          }
+          setMessages((prev) => {
+            const idx = assistantIndexRef.current;
+            if (idx === null || idx >= prev.length) return prev;
+            const next = [...prev];
+            next[idx] = { role: "assistant", content: finalReply };
+            return next;
+          });
+          setPendingConfirmation(null);
+        }
+        if (chunk.type === "interrupt") {
+          setPendingConfirmation({ text: trimmed, reply: chunk.message });
+          setMessages((prev) => {
+            const idx = assistantIndexRef.current;
+            if (idx === null || idx >= prev.length) return prev;
+            const next = [...prev];
+            next[idx] = { role: "assistant", content: chunk.message };
+            return next;
+          });
+        }
+      },
+      onDone: () => {
+        setLoading(false);
+        inputRef.current?.focus();
+      },
+      onError: (err) => {
+        setMessages((prev) => {
+          const idx = assistantIndexRef.current;
+          if (idx !== null && idx < prev.length) {
+            const next = [...prev];
+            next[idx] = { role: "assistant", content: err.message || "Sorry, something went wrong. Please try again." };
+            return next;
+          }
+          return [...prev, { role: "assistant", content: err.message || "Sorry, something went wrong. Please try again." }];
+        });
+        setLoading(false);
+        inputRef.current?.focus();
+      },
+    });
   };
 
   const handleConfirm = () => {
